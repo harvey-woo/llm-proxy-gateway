@@ -14,6 +14,12 @@ const isDesktop = typeof window !== "undefined" && !!(window as any).__electrobu
 const isMac = isDesktop && navigator.platform.includes("Mac");
 const isWindows = isDesktop && navigator.platform.includes("Win");
 
+function sendWindowControl(action: "minimize" | "maximize" | "close") {
+  if (isDesktop && (window as any).__electrobunSendToHost) {
+    (window as any).__electrobunSendToHost({ type: "window-control", action });
+  }
+}
+
 const tabs = [
   { key: "nav.dashboard", path: "/dashboard", testId: "nav-dashboard-tab", icon: "i-tabler-layout-dashboard" },
   { key: "nav.models", path: "/models", testId: "nav-models-tab", icon: "i-tabler-settings" },
@@ -34,7 +40,7 @@ function navigate(path: string) {
 <template>
   <header class="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 select-none electrobun-webkit-app-region-drag">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div :class="['flex items-center justify-between h-14', isMac ? 'pl-[60px]' : '', isWindows ? 'pr-[72px]' : '']">
+      <div :class="['flex items-center justify-between h-14', isMac ? 'pl-[60px]' : '', isWindows ? 'pr-[108px]' : '']">
         <div class="flex items-center gap-3 shrink-0">
           <span class="text-sm lg:text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight whitespace-nowrap select-none">LLM Proxy Gateway</span>
         </div>
@@ -59,6 +65,18 @@ function navigate(path: string) {
           <CurrencySwitcher />
           <LanguageSwitcher />
           <ThemeToggle />
+          <!-- Windows window controls -->
+          <template v-if="isWindows">
+            <button class="w-9 h-9 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors" @click="sendWindowControl('minimize')" title="Minimize">
+              <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+            </button>
+            <button class="w-9 h-9 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors" @click="sendWindowControl('maximize')" title="Maximize">
+              <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" stroke="currentColor" stroke-width="1.2" fill="none" rx="1"/></svg>
+            </button>
+            <button class="w-9 h-9 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 cursor-pointer transition-colors" @click="sendWindowControl('close')" title="Close">
+              <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+            </button>
+          </template>
         </div>
       </div>
     </div>

@@ -1,12 +1,15 @@
 #!/bin/bash
 # bundle-resources.sh
 # After electrobun build, copy backend dist, config, and frontend into the .app bundle.
-set -euo pipefail
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CLIENT_DIR="$SCRIPT_DIR"
+CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$CLIENT_DIR/../.." && pwd)"
-APP_BUNDLE=$(ls -dt "$CLIENT_DIR/build/"*/"LLM Proxy Gateway"*.app 2>/dev/null | head -1)
+APP_BUNDLE=$(ls -dt "$CLIENT_DIR/build/"LLM\ Proxy\ Gateway*.app 2>/dev/null | head -1)
+if [ -z "$APP_BUNDLE" ]; then
+  APP_BUNDLE=$(ls -dt "$CLIENT_DIR/build/"*/"LLM Proxy Gateway"*.app 2>/dev/null | head -1)
+fi
 
 if [ -z "$APP_BUNDLE" ]; then
   echo "[bundle] No .app bundle found. Run electrobun build first."
@@ -19,7 +22,7 @@ echo "[bundle] → $RESOURCES"
 # Backend dist (compiled JS for production)
 if [ -d "$PROJECT_ROOT/packages/backend/dist" ]; then
   mkdir -p "$RESOURCES/backend"
-  cp -r "$PROJECT_ROOT/packages/backend/dist/"* "$RESOURCES/backend/"
+  cp -r "$PROJECT_ROOT/packages/backend/dist/." "$RESOURCES/backend/"
   echo "  backend/ ✓"
 else
   echo "  Warning: backend dist not found"
@@ -35,7 +38,7 @@ fi
 # Frontend dist (served by electrobun views://)
 if [ -d "$PROJECT_ROOT/packages/frontend/dist" ]; then
   mkdir -p "$RESOURCES/frontend"
-  cp -r "$PROJECT_ROOT/packages/frontend/dist/"* "$RESOURCES/frontend/"
+  cp -r "$PROJECT_ROOT/packages/frontend/dist/." "$RESOURCES/frontend/"
   echo "  frontend/ ✓"
 fi
 

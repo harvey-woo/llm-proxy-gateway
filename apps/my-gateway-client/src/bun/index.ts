@@ -1,7 +1,8 @@
 import { homedir } from "node:os";
 import { resolve, join, dirname } from "node:path";
 import { mkdirSync, accessSync, constants } from "node:fs";
-import { BrowserWindow } from "electrobun/bun";
+import { BrowserWindow, BrowserView } from "electrobun/bun";
+import Electrobun from "electrobun/bun";
 
 const PORT = 9000;
 type RuntimeMode = "development" | "production" | "test";
@@ -84,12 +85,27 @@ async function main() {
   Bun.serve({ port: PORT, fetch: app.fetch });
   console.log(`[GW] Ready at http://localhost:${PORT}`);
 
-  // Open desktop window — frameless via titleBarStyle, drag region in frontend
+  // Open desktop window — hidden native title bar, custom buttons in AppNav
   const win = new BrowserWindow({
     title: "LLM Proxy Gateway",
     url: `http://localhost:${PORT}`,
     frame: { x: 0, y: 0, width: 640, height: 520 },
     titleBarStyle: "hiddenInset",
+  });
+
+  // IPC: listen for window control commands from frontend via electrobun's host-message channel
+  // Note: native.ts already JSON.parses the detail for host-message events,
+  // so event.data.detail is already an object
+  Electrobun.events.on("host-message", (event: { data: { detail: unknown } }) => {
+    const msg = event.data.detail as Record<string, unknown>;
+    if (msg && msg.type === "window-control") {
+      const action = msg.action as "minimize" | "maximize" | "close";
+      switch (action) {
+        case "minimize": win.minimize(); break;
+        case "maximize": win.isMaximized() ? win.unmaximize() : win.maximize(); break;
+        case "close": win.close(); break;
+      }
+    }
   });
 
   process.on("SIGINT", async () => { await stop(); process.exit(0); });

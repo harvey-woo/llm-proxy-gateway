@@ -76,7 +76,8 @@ export async function createApp(opts?: {
 
   // Load provider auths from database into in-memory store
   try {
-    const authRows = await getDb(opts?.dbPath)
+    const db = await getDb(opts?.dbPath);
+    const authRows = await db
       .selectFrom("provider_auths")
       .selectAll()
       .execute();
