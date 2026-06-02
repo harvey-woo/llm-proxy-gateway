@@ -3,26 +3,136 @@
 # API Keys 存储在数据库中，不在本文件内
 
 # 供应商模板源
-# template_url: "https://example.com/templates.json"
+# template_url: "https://raw.githubusercontent.com/cat5th/llm-proxy-templates/main/templates.json"
 
-# 示例供应商
-# providers:
-#   my-provider:
-#     name: My Provider
-#     base_url: https://api.example.com
-#     api_format: openai_chat       # openai_chat | anthropic_messages | openai_responses
-#     currency: USD
-#     models:
-#       - name: gpt-4o
-#         input_price: 2.5
-#         output_price: 10
-#     pricing_model: per_model_token # no_billing | per_request_weighted | per_model_token | subscription
+providers:
+  aliyun:
+    name: 阿里云百炼
+    base_url: https://coding.dashscope.aliyuncs.com
+    api_format: openai_chat
+    currency: CNY
+    models:
+      - name: qwen3.6-plus
+        input_price: 2
+        output_price: 8
+      - name: glm-5
+        input_price: 5
+        output_price: 20
+    pricing_model: subscription
+    unit_price: 0.003
+    subscription:
+      price: 200
+      period: month
+      billing_type: weighted_requests
+      included_requests: 90000
+      overage_unit_price: 0
+    rate_limits:
+      - type: weighted_requests
+        period: 5h
+        max: 6000
+      - type: weighted_requests
+        period: week
+        max: 45000
 
-# 模型别名
-# model_aliases:
-#   my-model:
-#     strategy: proportional         # proportional | priority | round_robin | random | least_loaded
-#     models:
-#       - provider_id: my-provider
-#         model_name: gpt-4o
-#     enabled: true
+  ikuncode:
+    name: IKunCode
+    base_url: https://api.ikuncode.cc
+    api_format: anthropic_messages
+    currency: CNY
+    models:
+      - name: claude-sonnet-4-6
+        input_price: 2.76
+        output_price: 13.80
+        cache_hit_price: 0.28
+        cache_create_price: 3.45
+      - name: claude-opus-4-8
+        input_price: 4.60
+        output_price: 23.00
+        cache_hit_price: 0.46
+        cache_create_price: 5.75
+    pricing_model: per_model_token
+
+  deepseek:
+    name: Deepseek
+    base_url: https://api.deepseek.com
+    api_format: openai_chat
+    currency: CNY
+    models:
+      - name: deepseek-v4-pro
+        input_price: 3
+        output_price: 6
+        cache_hit_price: 0.025
+      - name: deepseek-v4-flash
+        input_price: 1
+        output_price: 2
+        cache_hit_price: 0.02
+    pricing_model: per_model_token
+
+  stepfun:
+    name: 阶跃星辰
+    base_url: https://api.stepfun.com
+    api_format: openai_chat
+    currency: CNY
+    models:
+      - name: step-3.7-flash
+        input_price: 1.35
+        output_price: 8.10
+        cache_hit_price: 0.27
+    pricing_model: per_model_token
+
+model_aliases:
+  qwen3.6-plus:
+    strategy: proportional
+    models:
+      - provider_id: aliyun
+        model_name: qwen3.6-plus
+    enabled: true
+    description: "Qwen 3.6 Plus via 阿里云百炼"
+
+  glm-5:
+    strategy: proportional
+    models:
+      - provider_id: aliyun
+        model_name: glm-5
+    enabled: true
+    description: "GLM-5 via 阿里云百炼"
+
+  claude-sonnet-4-6:
+    strategy: proportional
+    models:
+      - provider_id: ikuncode
+        model_name: claude-sonnet-4-6
+    enabled: true
+    description: "Claude Sonnet 4.6 via IKunCode"
+
+  claude-opus-4-8:
+    strategy: proportional
+    models:
+      - provider_id: ikuncode
+        model_name: claude-opus-4-8
+    enabled: true
+    description: "Claude Opus 4.8 via IKunCode"
+
+  deepseek-v4-pro:
+    strategy: proportional
+    models:
+      - provider_id: deepseek
+        model_name: deepseek-v4-pro
+    enabled: true
+    description: "DeepSeek V4 Pro"
+
+  deepseek-v4-flash:
+    strategy: proportional
+    models:
+      - provider_id: deepseek
+        model_name: deepseek-v4-flash
+    enabled: true
+    description: "DeepSeek V4 Flash"
+
+  step-3.7-flash:
+    strategy: proportional
+    models:
+      - provider_id: stepfun
+        model_name: step-3.7-flash
+    enabled: true
+    description: "Step 3.7 Flash via 阶跃星辰"
