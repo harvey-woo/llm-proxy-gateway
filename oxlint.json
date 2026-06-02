@@ -1,0 +1,11 @@
+{
+  "plugins": ["typescript"],
+  "rules": {
+    "typescript": "warn"
+  },
+  "ignorePatterns": [
+    "node_modules",
+    ".yarn",
+    "dist"
+  ]
+}

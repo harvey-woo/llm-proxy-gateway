@@ -1,0 +1,29 @@
+{
+  "name": "@llm-proxy/backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.4",
+    "@llm-proxy/shared": "workspace:^",
+    "better-sqlite3": "latest",
+    "hono": "latest",
+    "kysely": "latest",
+    "kysely-bun-sqlite": "^0.4.0",
+    "sql.js": "^1.14.1",
+    "yaml": "latest",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

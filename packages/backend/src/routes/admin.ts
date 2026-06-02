@@ -1,0 +1,718 @@
+import { Hono } from "hono";
+import type { LoadedConfig } from "../config/loader.js";
+import type { ModelAlias } from "@llm-proxy/shared/schemas";
+import { getDb } from "../db/database.js";
+import { randomUUID } from "node:crypto";
+
+export interface StoreState {
+  models: Map<string, ModelAlias>;
+  providers: Map<string, Provider>;
+}
+
+/**
+ * Create mutable in-memory stores seeded from config.
+ * Write operations modify these stores; config reload resets them.
+ */
+export function createStoreState(config: LoadedConfig): StoreState {
+  return {
+    models: new Map(config.models),
+    providers: new Map(config.providers),
+  };
+}
+
+export function createAdminRoutes(
+  configRef: { current: LoadedConfig },
+  storeRef: { current: StoreState },
+  onReload?: () => Promise<LoadedConfig>,
+  onAuthChange?: () => void,
+): Hono {
+  const router = new Hono();
+
+  // ============================================================
+  // Model Alias Routes
+  // ============================================================
+
+  // GET /api/models - List all model aliases
+  router.get("/api/models", (c) => {
+    const { page = "1", page_size = "20", enabled } = c.req.query();
+
+    let items = Array.from(storeRef.current.models.values()).map((m) => ({
+      ...m,
+      id: m.alias,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+
+    if (enabled !== undefined) {
+      const enabledBool = enabled === "true";
+      items = items.filter((m) => m.enabled === enabledBool);
+    }
+
+    const total = items.length;
+    const start = ((Number(page) || 1) - 1) * (Number(page_size) || 20);
+    const paginated = items.slice(start, start + (Number(page_size) || 20));
+
+    return c.json({
+      success: true,
+      data: paginated,
+      total,
+      page: Number(page) || 1,
+      page_size: Number(page_size) || 20,
+    });
+  });
+
+  // GET /api/models/:id
+  router.get("/api/models/:id", (c) => {
+    const id = c.req.param("id");
+    const model = storeRef.current.models.get(id);
+
+    if (!model) {
+      return c.json({ success: false, error: "Model alias not found", code: "NOT_FOUND" }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        ...model,
+        id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    });
+  });
+
+  // POST /api/models - Create a model alias
+  router.post("/api/models", async (c) => {
+    const body = (await c.req.json()) as Record<string, unknown>;
+
+    const alias = body.alias as string;
+    if (!alias) {
+      return c.json({ success: false, error: "Alias is required" }, 400);
+    }
+
+    // Check duplicate
+    if (storeRef.current.models.has(alias)) {
+      return c.json({ success: false, error: "Model alias already exists", code: "DUPLICATE_ALIAS" }, 409);
+    }
+
+    const now = new Date().toISOString();
+    const newItem: ModelAlias = {
+      alias,
+      strategy: (body.strategy as string) ?? "proportional",
+      models: (body.models as Array<{ provider_id: string; model_name: string }>) ?? [],
+      queue_timeout: (body.queue_timeout as number) ?? 30000,
+      enabled: body.enabled !== undefined ? Boolean(body.enabled) : true,
+      description: body.description as string | undefined,
+    };
+
+    storeRef.current.models.set(alias, newItem);
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          ...newItem,
+          id: alias,
+          created_at: now,
+          updated_at: now,
+        },
+      },
+      201,
+    );
+  });
+
+  // PATCH /api/models/:id - Update a model alias
+  router.patch("/api/models/:id", async (c) => {
+    const id = c.req.param("id");
+    const existing = storeRef.current.models.get(id);
+
+    if (!existing) {
+      return c.json({ success: false, error: "Model alias not found", code: "NOT_FOUND" }, 404);
+    }
+
+    const body = (await c.req.json()) as Record<string, unknown>;
+
+    // Check duplicate alias if changing alias name
+    const newAlias = body.alias as string | undefined;
+    if (newAlias && newAlias !== id && storeRef.current.models.has(newAlias)) {
+      return c.json({ success: false, error: "Model alias already exists", code: "DUPLICATE_ALIAS" }, 409);
+    }
+
+    const updated: ModelAlias = {
+      ...existing,
+      alias: newAlias ?? id,
+      strategy: (body.strategy as string) ?? existing.strategy,
+      models: (body.models as Array<{ provider_id: string; model_name: string }>) ?? existing.models,
+      queue_timeout: (body.queue_timeout as number) ?? existing.queue_timeout,
+      enabled: body.enabled !== undefined ? Boolean(body.enabled) : existing.enabled,
+      description: body.description !== undefined ? (body.description as string | undefined) : existing.description,
+    };
+
+    // If alias changed, re-key
+    if (newAlias && newAlias !== id) {
+      storeRef.current.models.delete(id);
+    }
+    storeRef.current.models.set(updated.alias, updated);
+
+    return c.json({
+      success: true,
+      data: {
+        ...updated,
+        id: updated.alias,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    });
+  });
+
+  // DELETE /api/models/:id
+  router.delete("/api/models/:id", (c) => {
+    const id = c.req.param("id");
+    if (!storeRef.current.models.has(id)) {
+      return c.json({ success: false, error: "Model alias not found", code: "NOT_FOUND" }, 404);
+    }
+    storeRef.current.models.delete(id);
+    return c.json({ success: true });
+  });
+
+  // ============================================================
+  // Provider Routes
+  // ============================================================
+
+  // GET /api/providers
+  router.get("/api/providers", (c) => {
+    const { page = "1", page_size = "20", enabled } = c.req.query();
+
+    let items = Array.from(storeRef.current.providers.values()).map((p) => ({
+      ...p,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      health_status: "unknown" as const,
+    }));
+
+    if (enabled !== undefined) {
+      const enabledBool = enabled === "true";
+      items = items.filter((p) => p.enabled === enabledBool);
+    }
+
+    const total = items.length;
+    const start = ((Number(page) || 1) - 1) * (Number(page_size) || 20);
+    const paginated = items.slice(start, start + (Number(page_size) || 20));
+
+    return c.json({
+      success: true,
+      data: paginated,
+      total,
+      page: Number(page) || 1,
+      page_size: Number(page_size) || 20,
+    });
+  });
+
+  // GET /api/providers/:id
+  router.get("/api/providers/:id", (c) => {
+    const id = c.req.param("id");
+    const provider = storeRef.current.providers.get(id);
+
+    if (!provider) {
+      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        ...provider,
+        id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        health_status: "unknown" as const,
+      },
+    });
+  });
+
+  // POST /api/providers - Create a provider
+  router.post("/api/providers", async (c) => {
+    const body = (await c.req.json()) as Record<string, unknown>;
+
+    const id = body.id as string;
+    if (!id) {
+      return c.json({ success: false, error: "Provider ID is required" }, 400);
+    }
+
+    if (storeRef.current.providers.has(id)) {
+      return c.json({ success: false, error: "Provider already exists", code: "DUPLICATE_ID" }, 409);
+    }
+
+    // Resolve model aliases if needed
+    const models = (body.models as Array<Record<string, unknown>>) ?? [];
+    const resolvedModels = resolveModelAliases(models, storeRef.current.models);
+
+    const now = new Date().toISOString();
+    const auths = ((body.auths as Array<{ key: string; name?: string }>) ?? []).map((a) => ({
+      key: a.key,
+      name: a.name,
+    }));
+
+    const newItem: Provider = {
+      id,
+      name: (body.name as string) ?? id,
+      base_url: body.base_url as string,
+      models: resolvedModels,
+      auths,
+      rate_limits: (body.rate_limits as Array<{ type: string; max: number; period?: string }>) ?? [],
+      request_timeout_ms: (body.request_timeout_ms as number) ?? 60000,
+      max_retries: (body.max_retries as number) ?? 3,
+      enabled: body.enabled !== undefined ? Boolean(body.enabled) : true,
+      pricing_model: (body.pricing_model as string) ?? "per_request_weighted",
+      unit_price: (body.unit_price as number) ?? 0.001,
+      currency: (body.currency as string) ?? "USD",
+    };
+
+    storeRef.current.providers.set(id, newItem);
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          ...newItem,
+          created_at: now,
+          updated_at: now,
+          health_status: "unknown" as const,
+        },
+      },
+      201,
+    );
+  });
+
+  // PATCH /api/providers/:id - Update a provider
+  router.patch("/api/providers/:id", async (c) => {
+    const id = c.req.param("id");
+    const existing = storeRef.current.providers.get(id);
+
+    if (!existing) {
+      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    }
+
+    const body = (await c.req.json()) as Record<string, unknown>;
+
+    // Check duplicate id if changing
+    const newId = body.id as string | undefined;
+    if (newId && newId !== id && storeRef.current.providers.has(newId)) {
+      return c.json({ success: false, error: "Provider already exists", code: "DUPLICATE_ID" }, 409);
+    }
+
+    // Resolve model aliases
+    let models = existing.models;
+    if (body.models) {
+      models = resolveModelAliases(
+        (body.models as Array<Record<string, unknown>>) ?? [],
+        storeRef.current.models,
+      );
+    }
+
+    const updatedId = newId ?? id;
+    const updated: Provider = {
+      ...existing,
+      id: updatedId,
+      name: (body.name as string) ?? existing.name,
+      base_url: (body.base_url as string) ?? existing.base_url,
+      models,
+      auths: body.auths !== undefined
+        ? ((body.auths as Array<{ key: string; name?: string }>) ?? []).map((a) => ({ key: a.key, name: a.name }))
+        : existing.auths,
+      rate_limits: (body.rate_limits as Array<{ type: string; max: number; period?: string }>) ?? existing.rate_limits,
+      request_timeout_ms: (body.request_timeout_ms as number) ?? existing.request_timeout_ms,
+      max_retries: (body.max_retries as number) ?? existing.max_retries,
+      enabled: body.enabled !== undefined ? Boolean(body.enabled) : existing.enabled,
+      pricing_model: (body.pricing_model as string) ?? existing.pricing_model,
+      unit_price: (body.unit_price as number) ?? existing.unit_price,
+      subscription: body.subscription !== undefined
+        ? (body.subscription as { price: number; period: string; billing_type: string; included_requests?: number; overage_unit_price?: number; included_tokens?: number })
+        : existing.subscription,
+      currency: (body.currency as string) ?? existing.currency,
+    };
+
+    if (newId && newId !== id) {
+      storeRef.current.providers.delete(id);
+    }
+    storeRef.current.providers.set(updatedId, updated);
+
+    return c.json({
+      success: true,
+      data: {
+        ...updated,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        health_status: "unknown" as const,
+      },
+    });
+  });
+
+  // DELETE /api/providers/:id
+  router.delete("/api/providers/:id", (c) => {
+    const id = c.req.param("id");
+    if (!storeRef.current.providers.has(id)) {
+      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    }
+    storeRef.current.providers.delete(id);
+    return c.json({ success: true });
+  });
+
+  // ============================================================
+  // Auth Routes (nested under providers)
+  // ============================================================
+
+  // GET /api/providers/:id/auths
+  router.get("/api/providers/:id/auths", async (c) => {
+    const providerId = c.req.param("id");
+    const provider = storeRef.current.providers.get(providerId);
+
+    if (!provider) {
+      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    }
+
+    const db = await getDb();
+    const rows = await db
+      .selectFrom("provider_auths")
+      .selectAll()
+      .where("provider_id", "=", providerId)
+      .execute();
+
+    const items = rows.map((row) => ({
+      key: row.key,
+      name: row.name ?? undefined,
+      id: row.id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
+
+    return c.json({
+      success: true,
+      data: items,
+      total: items.length,
+      page: 1,
+      page_size: items.length,
+    });
+  });
+
+  // GET /api/providers/:id/auths/:key
+  router.get("/api/providers/:id/auths/:key", async (c) => {
+    const providerId = c.req.param("id");
+    const key = c.req.param("key");
+    const provider = storeRef.current.providers.get(providerId);
+
+    if (!provider) {
+      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    }
+
+    const db = await getDb();
+    const row = await db
+      .selectFrom("provider_auths")
+      .selectAll()
+      .where("provider_id", "=", providerId)
+      .where("key", "=", key)
+      .executeTakeFirst();
+
+    if (!row) {
+      return c.json({ success: false, error: "Auth key not found", code: "NOT_FOUND" }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        key: row.key,
+        name: row.name ?? undefined,
+        id: row.id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      },
+    });
+  });
+
+  // POST /api/providers/:id/auths - Create an auth key
+  router.post("/api/providers/:id/auths", async (c) => {
+    const providerId = c.req.param("id");
+    const provider = storeRef.current.providers.get(providerId);
+
+    if (!provider) {
+      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    }
+
+    const body = (await c.req.json()) as { key: string; name?: string };
+    if (!body.key) {
+      return c.json({ success: false, error: "Key is required" }, 400);
+    }
+
+    const db = await getDb();
+
+    // Check duplicate key
+    const existing = await db
+      .selectFrom("provider_auths")
+      .selectAll()
+      .where("provider_id", "=", providerId)
+      .where("key", "=", body.key)
+      .executeTakeFirst();
+
+    if (existing) {
+      // Key already exists — no-op, return existing
+      return c.json({
+        success: true,
+        data: {
+          key: existing.key,
+          name: existing.name,
+          id: existing.id,
+          created_at: existing.created_at,
+          updated_at: existing.updated_at,
+        },
+      });
+    }
+
+    const now = new Date().toISOString();
+    const id = randomUUID();
+
+    await db
+      .insertInto("provider_auths")
+      .values({
+        id,
+        provider_id: providerId,
+        key: body.key,
+        name: body.name ?? null,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+
+    // Keep in-memory state in sync
+    const newAuth = { key: body.key, name: body.name };
+    provider.auths = [...(provider.auths ?? []), newAuth];
+    storeRef.current.providers.set(providerId, provider);
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          ...newAuth,
+          id,
+          created_at: now,
+          updated_at: now,
+        },
+      },
+      201,
+    );
+  });
+
+  // PATCH /api/providers/:id/auths/:key - Update an auth key
+  router.patch("/api/providers/:id/auths/:key", async (c) => {
+    const providerId = c.req.param("id");
+    const key = c.req.param("key");
+    const provider = storeRef.current.providers.get(providerId);
+
+    if (!provider) {
+      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    }
+
+    const db = await getDb();
+
+    const row = await db
+      .selectFrom("provider_auths")
+      .selectAll()
+      .where("provider_id", "=", providerId)
+      .where("key", "=", key)
+      .executeTakeFirst();
+
+    if (!row) {
+      return c.json({ success: false, error: "Auth key not found", code: "NOT_FOUND" }, 404);
+    }
+
+    const body = (await c.req.json()) as { key?: string; name?: string };
+
+    const updatedKey = body.key ?? row.key;
+    const updatedName = body.name !== undefined ? body.name : (row.name ?? undefined);
+    const now = new Date().toISOString();
+
+    await db
+      .updateTable("provider_auths")
+      .set({
+        key: updatedKey,
+        name: updatedName ?? null,
+        updated_at: now,
+      })
+      .where("id", "=", row.id)
+      .execute();
+
+    // Keep in-memory state in sync
+    const authIndex = (provider.auths ?? []).findIndex((a) => a.key === key);
+    if (authIndex !== -1) {
+      const updatedAuth = { key: updatedKey, name: updatedName };
+      provider.auths![authIndex] = updatedAuth;
+    } else {
+      // Add to in-memory if not present (e.g., loaded from DB later)
+      provider.auths = [...(provider.auths ?? []), { key: updatedKey, name: updatedName }];
+    }
+    storeRef.current.providers.set(providerId, provider);
+    onAuthChange?.();
+
+    return c.json({
+      success: true,
+      data: {
+        key: updatedKey,
+        name: updatedName,
+        id: row.id,
+        created_at: row.created_at,
+        updated_at: now,
+      },
+    });
+  });
+
+  // DELETE /api/providers/:id/auths/:key
+  router.delete("/api/providers/:id/auths/:key", async (c) => {
+    const providerId = c.req.param("id");
+    const key = c.req.param("key");
+    const provider = storeRef.current.providers.get(providerId);
+
+    if (!provider) {
+      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    }
+
+    const db = await getDb();
+
+    const row = await db
+      .selectFrom("provider_auths")
+      .selectAll()
+      .where("provider_id", "=", providerId)
+      .where("key", "=", key)
+      .executeTakeFirst();
+
+    if (!row) {
+      return c.json({ success: false, error: "Auth key not found", code: "NOT_FOUND" }, 404);
+    }
+
+    await db
+      .deleteFrom("provider_auths")
+      .where("id", "=", row.id)
+      .execute();
+
+    // Keep in-memory state in sync
+    const authIndex = (provider.auths ?? []).findIndex((a) => a.key === key);
+    if (authIndex !== -1) {
+      provider.auths!.splice(authIndex, 1);
+    }
+    storeRef.current.providers.set(providerId, provider);
+    onAuthChange?.();
+
+    return c.json({ success: true });
+  });
+
+  // POST /api/auths/validate - Validate an auth key across all providers
+  router.post("/api/auths/validate", async (c) => {
+    const body = await c.req.json();
+    const key = (body as Record<string, unknown>).key as string;
+
+    if (!key) {
+      return c.json({ success: false, error: "Key is required" }, 400);
+    }
+
+    for (const [, provider] of storeRef.current.providers.entries()) {
+      const auth = (provider.auths ?? []).find((a) => a.key === key);
+      if (auth) {
+        return c.json({
+          success: true,
+          data: {
+            valid: true,
+            key_name: auth.name,
+            rate_limited: false,
+          },
+        });
+      }
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        valid: false,
+      },
+    });
+  });
+
+  // POST /api/config/reload
+  router.post("/api/config/reload", async (c) => {
+    if (!onReload) {
+      return c.json(
+        {
+          success: false,
+          error: "Config reload is not available",
+        },
+        501,
+      );
+    }
+
+    try {
+      const newConfig = await onReload();
+      // Reset store from config
+      storeRef.current.models = new Map(newConfig.models);
+      storeRef.current.providers = new Map(newConfig.providers);
+
+      const authCount = Array.from(newConfig.providers.values()).reduce(
+        (sum, p) => sum + (p.auths ?? []).length,
+        0,
+      );
+
+      return c.json({
+        success: true,
+        data: {
+          models_count: newConfig.models.size,
+          providers_count: newConfig.providers.size,
+          auths_count: authCount,
+          reloaded_at: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      return c.json(
+        {
+          success: false,
+          error: `Config reload failed: ${error instanceof Error ? error.message : String(error)}`,
+        },
+        500,
+      );
+    }
+  });
+
+  return router;
+}
+
+/**
+ * Resolve model aliases — auto-create when alias is empty.
+ */
+function resolveModelAliases(
+  models: Array<Record<string, unknown>>,
+  modelsStore: Map<string, ModelAlias>,
+): Array<{ name: string; enabled?: boolean; weight?: number; alias?: string }> {
+  return models.map((m) => {
+    const modelName = m.name as string;
+    const alias = (m.alias as string) ?? "";
+    const result: Record<string, unknown> = { ...m };
+
+    if (!alias || alias.trim() === "") {
+      // Empty alias: find existing alias with same name as model, or create one
+      const existingAlias = Array.from(modelsStore.values()).find(
+        (a) => a.alias === modelName,
+      );
+      if (existingAlias) {
+        result.alias = existingAlias.alias;
+      } else {
+        // Create a new alias with the model name
+        const now = new Date().toISOString();
+        const newAlias: ModelAlias = {
+          alias: modelName,
+          strategy: "proportional",
+          models: [],
+          queue_timeout: 30000,
+          enabled: true,
+        };
+        modelsStore.set(modelName, newAlias);
+        result.alias = modelName;
+      }
+    }
+
+    return result as { name: string; enabled?: boolean; weight?: number; alias?: string };
+  });
+}

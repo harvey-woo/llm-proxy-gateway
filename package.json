@@ -1,0 +1,30 @@
+{
+  "name": "llm-proxy-gateway",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "yarn workspaces foreach -A -p -v --include \"@llm-proxy/backend\" --include \"@llm-proxy/frontend\" run dev",
+    "lint": "oxlint packages/",
+    "format:check": "biome check --no-errors-on-unmatched packages/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "yarn lint && yarn typecheck && yarn test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "@playwright/test": "^1.60.0",
+    "happy-dom": "latest",
+    "oxlint": "latest",
+    "tsx": "^4.22.3",
+    "typescript": "latest",
+    "vitest": "latest"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.4"
+  }
+}

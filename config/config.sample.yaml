@@ -1,0 +1,28 @@
+# LLM Proxy Gateway - 配置样例
+# 复制此文件为 config.yaml 并按需修改
+# API Keys 存储在数据库中，不在本文件内
+
+# 供应商模板源
+# template_url: "https://example.com/templates.json"
+
+# 示例供应商
+# providers:
+#   my-provider:
+#     name: My Provider
+#     base_url: https://api.example.com
+#     api_format: openai_chat       # openai_chat | anthropic_messages | openai_responses
+#     currency: USD
+#     models:
+#       - name: gpt-4o
+#         input_price: 2.5
+#         output_price: 10
+#     pricing_model: per_model_token # no_billing | per_request_weighted | per_model_token | subscription
+
+# 模型别名
+# model_aliases:
+#   my-model:
+#     strategy: proportional         # proportional | priority | round_robin | random | least_loaded
+#     models:
+#       - provider_id: my-provider
+#         model_name: gpt-4o
+#     enabled: true

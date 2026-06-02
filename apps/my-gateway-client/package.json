@@ -1,0 +1,18 @@
+{
+  "name": "@llm-proxy/client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "DEV_WORKSPACE=$(cd ../.. && pwd) electrobun dev",
+    "start": "DEV_WORKSPACE=$(cd ../.. && pwd) electrobun dev",
+    "build:frontend": "cd ../.. && source ~/.nvm/nvm.sh && nvm use 24 && yarn workspace @llm-proxy/frontend exec -- vite build",
+    "build": "yarn build:frontend && yarn workspace @llm-proxy/backend exec -- tsc && electrobun build && bash scripts/bundle-resources.sh",
+    "postbuild": "echo 'Resources bundled. Run: open build/*/LLM\\ Proxy\\ Gateway*.app'"
+  },
+  "dependencies": {
+    "@llm-proxy/backend": "workspace:^",
+    "@llm-proxy/shared": "workspace:^",
+    "electrobun": "^1.18.1",
+    "hono": "latest"
+  }
+}
