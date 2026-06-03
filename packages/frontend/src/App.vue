@@ -47,7 +47,7 @@ onMounted(() => {
   <div class="min-h-screen h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 text-gray-900 dark:text-gray-100">
     <AppNav />
     <main class="flex-1 overflow-y-auto">
-      <div :class="isDesktop ? '' : 'page-container'">
+      <div :class="isDesktop ? 'px-4 sm:px-6 lg:px-8 py-6' : 'page-container'">
         <router-view v-slot="{ Component }">
           <Transition name="page" mode="out-in">
             <component :is="Component" />
