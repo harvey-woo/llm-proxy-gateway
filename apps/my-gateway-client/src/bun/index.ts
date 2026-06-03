@@ -5,7 +5,8 @@ import { BrowserWindow, BrowserView, Tray } from "electrobun/bun";
 import type { MenuItemConfig } from "electrobun/bun";
 import Electrobun from "electrobun/bun";
 
-const DEFAULT_PORT = 9000;
+  // Use different default ports for dev vs production to avoid conflicts
+  const DEFAULT_PORT = mode === "production" ? 9000 : 9001;
 const SETTINGS_FILE = "settings.json";
 type RuntimeMode = "development" | "production" | "test";
 

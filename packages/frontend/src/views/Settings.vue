@@ -50,7 +50,8 @@ const themeOptions: { value: Theme; label: string; icon: string }[] = [
 
 // ── Port (desktop only) ──
 const isDesktop = typeof window !== "undefined" && !!(window as any).__electrobun;
-const port = ref(9000);
+const mode = isDesktop && (window as any).__electrobun?.env === "production" ? "production" : "development";
+const port = ref(mode === "production" ? 9000 : 9001);
 const STORAGE_PORT = "llm-proxy-port";
 const portInput = ref("");
 const portSaved = ref(true);
