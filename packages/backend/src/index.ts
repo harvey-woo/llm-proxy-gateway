@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./server.js";
 
-const port = Number(process.env.PORT) || 9000;
+const port = Number(process.env.PORT) || 8080;
 
 const { app, stop } = await createApp();
 
