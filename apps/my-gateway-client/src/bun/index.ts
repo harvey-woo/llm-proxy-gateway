@@ -44,7 +44,7 @@ function getPaths(mode: RuntimeMode) {
       };
     }
     case "production": {
-      const resources = join(import.meta.dirname, "..", "Resources");
+      const resources = join(import.meta.dirname, "..", "..");
       const appSupport = join(process.env.HOME || homedir(), "Library", "Application Support", "LLM Proxy Gateway");
       return {
         configDir: join(resources, "config"),

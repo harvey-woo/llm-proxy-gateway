@@ -40,9 +40,9 @@ jobs:
       - name: Build frontend
         run: yarn workspace @llm-proxy/frontend exec -- vite build
 
-  # ── Build desktop client & create release (tags only) ──
+  # ── Build desktop client (every push to main; release on tag) ──
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push'
     runs-on: macos-latest
     timeout-minutes: 30
 
