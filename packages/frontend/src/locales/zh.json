@@ -5,6 +5,7 @@
   "nav.providers": "供应商",
   "nav.auths": "授权",
   "nav.stats": "统计",
+  "nav.settings": "设置",
   "theme.light": "切换亮色模式",
   "theme.dark": "切换深色模式",
   "theme.auto": "跟随系统",
@@ -239,5 +240,13 @@
   "billing.perModelToken": "按模型 Token 计费",
   "billing.subscription": "订阅制",
   "billing.month": "每月",
-  "billing.year": "每年"
+  "billing.year": "每年",
+  "settings.title": "设置",
+  "settings.subtitle": "语言、主题、货币和端口配置",
+  "settings.language": "语言",
+  "settings.theme": "主题",
+  "settings.currency": "货币",
+  "settings.port": "服务端口",
+  "settings.portSaved": "端口已保存，重启应用后生效",
+  "settings.restartRequired": "重启应用后生效"
 }

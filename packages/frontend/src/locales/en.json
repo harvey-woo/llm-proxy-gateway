@@ -5,6 +5,7 @@
   "nav.providers": "Providers",
   "nav.auths": "Auths",
   "nav.stats": "Stats",
+  "nav.settings": "Settings",
   "theme.light": "Switch to light mode",
   "theme.dark": "Switch to dark mode",
   "theme.auto": "Follow system",
@@ -239,5 +240,13 @@
   "billing.perModelToken": "Per Model Token",
   "billing.subscription": "Subscription",
   "billing.month": "Monthly",
-  "billing.year": "Yearly"
+  "billing.year": "Yearly",
+  "settings.title": "Settings",
+  "settings.subtitle": "Language, theme, currency, and port configuration",
+  "settings.language": "Language",
+  "settings.theme": "Theme",
+  "settings.currency": "Currency",
+  "settings.port": "Server Port",
+  "settings.portSaved": "Port saved. Restart the app to apply.",
+  "settings.restartRequired": "Restart required"
 }

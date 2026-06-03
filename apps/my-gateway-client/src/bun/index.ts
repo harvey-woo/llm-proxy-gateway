@@ -1,10 +1,11 @@
 import { homedir } from "node:os";
 import { resolve, join, dirname } from "node:path";
-import { mkdirSync, accessSync, constants } from "node:fs";
+import { mkdirSync, accessSync, constants, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { BrowserWindow, BrowserView } from "electrobun/bun";
 import Electrobun from "electrobun/bun";
 
-const PORT = 9000;
+const DEFAULT_PORT = 9000;
+const SETTINGS_FILE = "settings.json";
 type RuntimeMode = "development" | "production" | "test";
 
 function detectMode(): RuntimeMode {
@@ -31,6 +32,30 @@ function resolveDbPath(preferred: string, label: string): string {
     if (ensureWritableDir(dirname(fb))) { console.warn(`[GW] DB fallback: ${fb}`); return fb; }
   }
   throw new Error(`Cannot find writable location for ${label} database`);
+}
+
+function resolveSettingsPath(mode: RuntimeMode): string {
+  if (mode === "production") {
+    const appSupport = join(process.env.HOME || homedir(), "Library", "Application Support", "LLM Proxy Gateway");
+    mkdirSync(appSupport, { recursive: true });
+    return join(appSupport, SETTINGS_FILE);
+  }
+  const root = mode === "development" ? findWorkspaceRoot() : join(process.env.TMPDIR || "/tmp", "llm-proxy-gateway-test");
+  return join(root, SETTINGS_FILE);
+}
+
+function readPort(settingsPath: string): number {
+  if (existsSync(settingsPath)) {
+    const raw = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    const p = parseInt(raw.port, 10);
+    if (!isNaN(p) && p >= 1 && p <= 65535) return p;
+  }
+  return DEFAULT_PORT;
+}
+
+function writePort(settingsPath: string, port: number): void {
+  const existing = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, "utf-8")) : {};
+  writeFileSync(settingsPath, JSON.stringify({ ...existing, port }, null, 2));
 }
 
 function getPaths(mode: RuntimeMode) {
@@ -66,10 +91,13 @@ function getPaths(mode: RuntimeMode) {
 async function main() {
   const mode = detectMode();
   const paths = getPaths(mode);
+  const settingsPath = resolveSettingsPath(mode);
+  const PORT = readPort(settingsPath);
 
   console.log(`[GW] Mode: ${mode}`);
   console.log(`[GW] Config: ${paths.configDir}`);
   console.log(`[GW] Database: ${paths.dbPath}`);
+  console.log(`[GW] Settings: ${settingsPath}`);
 
   // Backend serves both API and frontend — the full app in one call
   console.log("[GW] Initializing backend...");
@@ -93,17 +121,25 @@ async function main() {
     titleBarStyle: "hiddenInset",
   });
 
-  // IPC: listen for window control commands from frontend via electrobun's host-message channel
-  // Note: native.ts already JSON.parses the detail for host-message events,
-  // so event.data.detail is already an object
+  // IPC: listen for window control and settings commands from frontend
   Electrobun.events.on("host-message", (event: { data: { detail: unknown } }) => {
     const msg = event.data.detail as Record<string, unknown>;
-    if (msg && msg.type === "window-control") {
+    if (!msg) return;
+
+    if (msg.type === "window-control") {
       const action = msg.action as "minimize" | "maximize" | "close";
       switch (action) {
         case "minimize": win.minimize(); break;
         case "maximize": win.isMaximized() ? win.unmaximize() : win.maximize(); break;
         case "close": win.close(); break;
+      }
+    }
+
+    if (msg.type === "save-port") {
+      const port = parseInt(msg.port as string, 10);
+      if (!isNaN(port) && port >= 1 && port <= 65535) {
+        writePort(settingsPath, port);
+        console.log(`[GW] Port saved: ${port} (restart required)`);
       }
     }
   });

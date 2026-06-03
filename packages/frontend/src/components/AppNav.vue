@@ -22,10 +22,11 @@ function sendWindowControl(action: "minimize" | "maximize" | "close") {
 
 const tabs = [
   { key: "nav.dashboard", path: "/dashboard", testId: "nav-dashboard-tab", icon: "i-tabler-layout-dashboard" },
-  { key: "nav.models", path: "/models", testId: "nav-models-tab", icon: "i-tabler-settings" },
+  { key: "nav.models", path: "/models", testId: "nav-models-tab", icon: "i-tabler-route-2" },
   { key: "nav.providers", path: "/providers", testId: "nav-providers-tab", icon: "i-tabler-server" },
   { key: "nav.auths", path: "/auths", testId: "nav-auths-tab", icon: "i-tabler-key" },
   { key: "nav.stats", path: "/stats", testId: "nav-stats-tab", icon: "i-tabler-chart-bar" },
+  { key: "nav.settings", path: "/settings", testId: "nav-settings-tab", icon: "i-tabler-settings" },
 ];
 
 function isActive(path: string) {
