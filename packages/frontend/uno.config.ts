@@ -70,9 +70,9 @@ export default defineConfig({
 
     "input-disabled": "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 placeholder-gray-300 dark:placeholder-gray-600",
 
-    "select-sm": "w-full px-3 py-1.5 pr-7 border border-solid border-gray-300 dark:border-gray-600 rounded-lg text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 box-border appearance-none bg-no-repeat bg-[length:16px] dark:bg-gray-700 dark:text-gray-200",
-    "select": "w-full px-3 py-2 pr-7 border border-solid border-gray-300 dark:border-gray-600 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 box-border appearance-none bg-no-repeat bg-[length:16px] dark:bg-gray-700 dark:text-gray-200",
-    "select-lg": "w-full px-4 py-2.5 pr-7 border border-solid border-gray-300 dark:border-gray-600 rounded-lg text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 box-border appearance-none bg-no-repeat bg-[length:16px] dark:bg-gray-700 dark:text-gray-200",
+    "select-sm": "w-full px-3 py-1.5 pr-7 border border-solid border-gray-300 dark:border-gray-600 rounded-lg text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 box-border appearance-none bg-no-repeat bg-[length:16px] text-gray-900 dark:text-gray-200 dark:bg-gray-700",
+    "select": "w-full px-3 py-2 pr-7 border border-solid border-gray-300 dark:border-gray-600 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 box-border appearance-none bg-no-repeat bg-[length:16px] text-gray-900 dark:text-gray-200 dark:bg-gray-700",
+    "select-lg": "w-full px-4 py-2.5 pr-7 border border-solid border-gray-300 dark:border-gray-600 rounded-lg text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 box-border appearance-none bg-no-repeat bg-[length:16px] text-gray-900 dark:text-gray-200 dark:bg-gray-700",
 
     "select-disabled": "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-75",
 

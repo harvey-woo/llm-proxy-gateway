@@ -5,7 +5,7 @@ import { useExchangeRates } from "../composables/useExchangeRates";
 import { useToast } from "../composables/useToast";
 
 const { t, locale } = useI18n();
-const { currency, setCurrency, currencies } = useExchangeRates();
+const { preferredCurrency, supportedCurrencies, setCurrency } = useExchangeRates();
 const { success } = useToast();
 
 // ── Language ──
@@ -102,10 +102,10 @@ onMounted(() => {
           v-for="opt in langOptions"
           :key="opt.value"
           :class="[
-            'px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer',
+            'px-2 py-2 rounded-lg text-sm font-semibold tracking-wide transition-colors inline-flex items-center justify-center min-w-[44px] cursor-pointer',
             lang === opt.value
               ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700',
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200',
           ]"
           @click="applyLang(opt.value)"
         >
@@ -122,10 +122,10 @@ onMounted(() => {
           v-for="opt in themeOptions"
           :key="opt.value"
           :class="[
-            'px-4 py-2 rounded-lg text-sm font-medium transition-all inline-flex items-center gap-1.5 cursor-pointer',
+            'px-2 py-2 rounded-lg text-sm transition-colors inline-flex items-center gap-1.5 cursor-pointer',
             theme === opt.value
               ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700',
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200',
           ]"
           @click="applyTheme(opt.value)"
         >
@@ -139,11 +139,11 @@ onMounted(() => {
     <section class="mt-6">
       <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{{ t("settings.currency") }}</h2>
       <select
-        :value="currency"
+        :value="preferredCurrency"
         @change="setCurrency(($event.target as HTMLSelectElement).value)"
-        class="px-3 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-transparent focus:border-blue-500 focus:outline-none cursor-pointer"
+        class="select w-auto min-w-[80px]"
       >
-        <option v-for="c in currencies" :key="c" :value="c">{{ c }}</option>
+        <option v-for="c in supportedCurrencies" :key="c" :value="c">{{ c }}</option>
       </select>
     </section>
 
@@ -156,15 +156,15 @@ onMounted(() => {
           type="number"
           min="1"
           max="65535"
-          class="w-28 px-3 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-transparent focus:border-blue-500 focus:outline-none"
+          class="input w-28"
           @input="portSaved = false"
         />
         <button
           :class="[
-            'px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer',
+            'btn',
             needsRestart()
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400',
+              ? 'btn-primary'
+              : 'btn-secondary opacity-50 cursor-not-allowed',
           ]"
           :disabled="!needsRestart()"
           @click="savePort"
