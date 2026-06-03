@@ -253,8 +253,13 @@ export class ProviderPool {
     const provider = this.providers.get(providerId);
     if (!provider || provider.models.length === 0) return modelAlias;
 
-    const enabledModel = provider.models.find((m) => m.enabled);
-    return enabledModel?.name ?? provider.models[0].name;
+    // Use the model_name from the alias's entry for this provider
+    const aliasEntry = model.models.find((m) => m.provider_id === providerId);
+    if (aliasEntry?.model_name) {
+      return aliasEntry.model_name;
+    }
+
+    return modelAlias;
   }
 
   /**

@@ -5,7 +5,7 @@
     {
       "id": "aliyun",
       "name": "阿里云百炼",
-      "base_url": "https://coding.dashscope.aliyuncs.com",
+      "base_url": "https://coding.dashscope.aliyuncs.com/v1",
       "api_format": "openai_chat",
       "currency": "CNY",
       "enabled": true,
@@ -46,7 +46,7 @@
     {
       "id": "deepseek",
       "name": "DeepSeek",
-      "base_url": "https://api.deepseek.com",
+      "base_url": "https://api.deepseek.com/v1",
       "api_format": "openai_chat",
       "currency": "CNY",
       "enabled": true,
@@ -76,7 +76,7 @@
     {
       "id": "openai",
       "name": "OpenAI",
-      "base_url": "https://api.openai.com",
+      "base_url": "https://api.openai.com/v1",
       "api_format": "openai_chat",
       "currency": "USD",
       "enabled": true,

@@ -46,8 +46,8 @@ export default defineConfig({
     },
     {
       command:
-        "cd ../.. && TEMPLATE_URL=http://localhost:9998/templates.sample.json PORT=8081 yarn workspace @llm-proxy/backend exec -- tsx src/index.ts",
-      url: "http://localhost:8081/health",
+        "cd ../.. && TEMPLATE_URL=http://localhost:9998/templates.sample.json PORT=28940 yarn workspace @llm-proxy/backend exec -- tsx src/index.ts",
+      url: "http://localhost:28940/health",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       stderr: "pipe",

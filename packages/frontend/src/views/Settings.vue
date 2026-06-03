@@ -50,17 +50,15 @@ const themeOptions: { value: Theme; label: string; icon: string }[] = [
 
 // ── Port (desktop only) ──
 const isDesktop = typeof window !== "undefined" && !!(window as any).__electrobun;
-const mode = isDesktop && (window as any).__electrobun?.env === "production" ? "production" : "development";
-const port = ref(mode === "production" ? 9000 : 9001);
+// Derive the actual port from the current URL — works in both browser and desktop
+const actualPort = parseInt(location.port, 10) || undefined;
+const port = ref(actualPort);
 const STORAGE_PORT = "llm-proxy-port";
 const portInput = ref("");
 const portSaved = ref(true);
 
 function loadPort() {
-  const stored = localStorage.getItem(STORAGE_PORT);
-  const p = stored ? parseInt(stored, 10) : 9000;
-  port.value = p;
-  portInput.value = String(p);
+  portInput.value = String(port.value);
 }
 
 function savePort() {

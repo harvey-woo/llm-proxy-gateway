@@ -382,6 +382,18 @@ export function chatResponseToMessagesResponse(
   response: ChatCompletionResponse,
   model: string,
 ): MessagesResponse {
+  if (!response.choices || !response.choices[0]) {
+    return {
+      id: response.id ?? "unknown",
+      type: "message",
+      role: "assistant",
+      content: [{ type: "text", text: "" }],
+      model: model,
+      stop_reason: "end_turn",
+      usage: undefined,
+    };
+  }
+
   const choice = response.choices[0];
 
   return {
@@ -401,8 +413,8 @@ export function chatResponseToMessagesResponse(
         : (choice.finish_reason as string),
     usage: response.usage
       ? {
-          input_tokens: response.usage.prompt_tokens,
-          output_tokens: response.usage.completion_tokens,
+          input_tokens: response.usage.prompt_tokens ?? 0,
+          output_tokens: response.usage.completion_tokens ?? 0,
         }
       : undefined,
   };

@@ -73,8 +73,10 @@ export function loadConfig(configDir?: string): LoadedConfig {
     for (const [id, value] of Object.entries(providerSource)) {
       const providerData = value as Record<string, unknown>;
 
-      // auths are managed via database — strip if present in YAML
-      delete providerData.auths;
+      // Ensure auths array exists for YAML-defined credentials
+      if (!providerData.auths) {
+        providerData.auths = [];
+      }
 
       const parsed = ProviderSchema.safeParse({
         id,

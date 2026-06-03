@@ -94,6 +94,9 @@ async function handleProxyRequest(
     );
   }
 
+  // Save whether the original request was streaming (e.g. Claude Code sends stream: true)
+  const wasStreaming = !!(body.stream as boolean);
+
   // Check if model alias exists
   const model = configRef.current.models.get(modelAlias);
   if (!model) {
@@ -195,6 +198,12 @@ async function handleProxyRequest(
     // Keep max_tokens as-is or adjust per provider
   }
 
+  // When formats differ and original was streaming, force stream=false upstream
+  // so we can transform the complete response and re-stream it in client format
+  if (wasStreaming && sourceFormat !== targetFormat) {
+    upstreamBody.stream = false;
+  }
+
   // Add auth header and protocol headers based on API format
   const requestHeaders: Record<string, string> = {
     ...transformResult.headers,
@@ -269,10 +278,88 @@ async function handleProxyRequest(
     // Release concurrency
     pool.getRateLimiter().releaseConcurrency(auth.key, provider.rate_limits);
 
+    // If upstream returned an error, pass it through directly without transformation
+    if (!upstreamResponse.ok) {
+      await logRequest({
+        authKey: auth.key,
+        providerId,
+        modelAlias,
+        realModel,
+        format: sourceFormat,
+        status: "error",
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheHitTokens: 0,
+        cacheCreateTokens: 0,
+        latencyMs,
+        errorMessage: JSON.stringify(responseData),
+      });
+      return c.json(responseData, upstreamResponse.status);
+    }
+
+    // Guard: if responseData is null/undefined, return an error
+    if (!responseData) {
+      throw new Error("Empty response from upstream");
+    }
+
     // Transform response back to source format if needed
     let finalResponseData = responseData;
     if (sourceFormat !== targetFormat) {
       finalResponseData = transformResponse(sourceFormat, targetFormat, responseData, realModel);
+    }
+
+    // If original was streaming and formats differ (Anthropic→OpenAI), wrap as SSE
+    if (wasStreaming && sourceFormat === "anthropic_messages") {
+      const msg = finalResponseData as Record<string, unknown>;
+      const msgId = (msg.id as string) ?? `msg_${Date.now()}`;
+      const msgContent = (msg.content as Array<Record<string, unknown>>) ?? [{ type: "text", text: "" }];
+      const msgModel = (msg.model as string) ?? realModel;
+      const msgStop = (msg.stop_reason as string) ?? "end_turn";
+      const msgUsage = (msg.usage as Record<string, number>) ?? { input_tokens: 0, output_tokens: 0 };
+      const textBlock = msgContent.find((c) => c.type === "text");
+      const text = (textBlock?.text as string) ?? "";
+
+      const sseEvents = [
+        `event: message_start\ndata: ${JSON.stringify({ type: "message_start", message: { id: msgId, type: "message", role: "assistant", content: [], model: msgModel, stop_reason: null, stop_sequence: null, usage: { input_tokens: msgUsage.input_tokens ?? 0, output_tokens: 0 } } })}\n\n`,
+        `event: content_block_start\ndata: ${JSON.stringify({ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } })}\n\n`,
+        `event: content_block_delta\ndata: ${JSON.stringify({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text } })}\n\n`,
+        `event: content_block_stop\ndata: ${JSON.stringify({ type: "content_block_stop", index: 0 })}\n\n`,
+        `event: message_delta\ndata: ${JSON.stringify({ type: "message_delta", delta: { stop_reason: msgStop, stop_sequence: null }, usage: { output_tokens: msgUsage.output_tokens ?? 0 } })}\n\n`,
+        `event: message_stop\ndata: ${JSON.stringify({ type: "message_stop" })}\n\n`,
+      ];
+
+      const encoder = new TextEncoder();
+      const sseStream = new ReadableStream({
+        start(controller) {
+          for (const evt of sseEvents) {
+            controller.enqueue(encoder.encode(evt));
+          }
+          controller.close();
+        },
+      });
+
+      await logRequest({
+        authKey: auth.key,
+        providerId,
+        modelAlias,
+        realModel,
+        format: sourceFormat,
+        status: "success",
+        inputTokens: msgUsage.input_tokens ?? 0,
+        outputTokens: msgUsage.output_tokens ?? 0,
+        cacheHitTokens: 0,
+        cacheCreateTokens: 0,
+        latencyMs,
+      });
+
+      return new Response(sseStream, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
     }
 
     // Extract usage from response
@@ -363,10 +450,10 @@ function formatToPath(format: string): string {
     case "anthropic_messages":
       return "/v1/messages";
     case "openai_responses":
-      return "/v1/responses";
+      return "/responses";
     case "openai_chat":
     default:
-      return "/v1/chat/completions";
+      return "/chat/completions";
   }
 }
 
