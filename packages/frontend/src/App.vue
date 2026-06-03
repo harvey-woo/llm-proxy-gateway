@@ -1,7 +1,43 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { RouterView } from "vue-router";
 import AppNav from "./components/AppNav.vue";
 import ToastContainer from "./components/ToastContainer.vue";
+
+const { locale } = useI18n();
+
+// ── Theme init ──
+type Theme = "light" | "dark" | "auto";
+const THEME_KEY = "llm-proxy-theme";
+
+function applyTheme(t: Theme) {
+  localStorage.setItem(THEME_KEY, t);
+  if (t === "auto") {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", prefersDark);
+  } else {
+    document.documentElement.classList.toggle("dark", t === "dark");
+  }
+}
+
+// ── Locale init ──
+type Lang = "zh" | "en";
+const LANG_KEY = "llm-proxy-locale";
+
+function applyLang(l: Lang) {
+  locale.value = l;
+  localStorage.setItem(LANG_KEY, l);
+  document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
+}
+
+onMounted(() => {
+  const stored = localStorage.getItem(THEME_KEY) as Theme | null;
+  applyTheme(stored || "auto");
+
+  const lang = localStorage.getItem(LANG_KEY) as Lang | null;
+  applyLang(lang || (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en"));
+});
 </script>
 
 <template>

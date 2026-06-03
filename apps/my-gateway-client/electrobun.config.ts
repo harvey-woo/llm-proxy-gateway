@@ -13,5 +13,8 @@ export default {
     icon: {
       path: "../../packages/frontend/public/AppIcon.icns",
     },
+    runtime: {
+      exitOnLastWindowClosed: false,
+    },
   },
 } satisfies ElectrobunConfig;

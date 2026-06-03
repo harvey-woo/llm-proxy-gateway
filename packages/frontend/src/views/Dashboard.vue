@@ -238,7 +238,7 @@ onMounted(fetchStats);
       <div class="card-section" data-testid="dashboard-section-per-request-weighted">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
           <span class="i-carbon-chart-bar text-blue-500 dark:text-blue-400 inline-flex items-center mr-1" />
-          {{ stats.by_pricing_model.per_request_weighted.label }}
+          {{ $t('billing.perRequestWeighted') }}
         </h2>
         <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">{{ $t('dashboard.perRequestWeightedDesc') }}</p>
 
@@ -357,7 +357,7 @@ onMounted(fetchStats);
       <div class="card-section" data-testid="dashboard-section-per-model-token">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
           <span class="i-carbon-token text-purple-500 dark:text-purple-400 inline-flex items-center mr-1" />
-          {{ stats.by_pricing_model.per_model_token.label }}
+          {{ $t('billing.perModelToken') }}
         </h2>
         <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">{{ $t('dashboard.perModelTokenDesc') }}</p>
 
@@ -476,7 +476,7 @@ onMounted(fetchStats);
       <div class="card-section" data-testid="dashboard-section-subscription">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
           <span class="i-carbon-subscription text-green-500 dark:text-green-400 inline-flex items-center mr-1" />
-          {{ stats.by_pricing_model.subscription.label }}
+          {{ $t('billing.subscription') }}
         </h2>
         <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">{{ $t('dashboard.subscriptionDesc') }}</p>
 

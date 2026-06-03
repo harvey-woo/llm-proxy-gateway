@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
@@ -36,10 +35,40 @@ function navigate(path: string) {
 
 <template>
   <header class="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 select-none electrobun-webkit-app-region-drag">
-    <div :class="['flex items-center justify-between h-14', isMac ? 'pl-[80px]' : '', isWindows ? 'pr-[108px]' : 'pr-6']">
-      <!-- Left: title -->
-      <div class="flex items-center gap-4 shrink-0">
-        <span class="text-sm lg:text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight whitespace-nowrap select-none">LLM Proxy Gateway</span>
+    <div class="flex items-center justify-between h-10 px-2">
+      <!-- Left: traffic lights (macOS) + title -->
+      <div class="flex items-center gap-2 electrobun-webkit-app-region-no-drag">
+        <!-- macOS custom traffic lights -->
+        <template v-if="isMac">
+          <button
+            class="group w-[14px] h-[14px] rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center cursor-pointer transition-colors border-0 p-0"
+            :title="t('common.close')"
+            @click="sendWindowControl('close')"
+          >
+            <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-0 group-hover:opacity-100">
+              <path d="M1.5 1.5l5 5M6.5 1.5l-5 5" stroke="rgba(0,0,0,0.5)" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button
+            class="group w-[14px] h-[14px] rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center cursor-pointer transition-colors border-0 p-0"
+            title="Minimize"
+            @click="sendWindowControl('minimize')"
+          >
+            <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-0 group-hover:opacity-100">
+              <path d="M2 4h4" stroke="rgba(0,0,0,0.5)" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button
+            class="group w-[14px] h-[14px] rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center cursor-pointer transition-colors border-0 p-0"
+            title="Maximize"
+            @click="sendWindowControl('maximize')"
+          >
+            <svg width="8" height="8" viewBox="0 0 8 8" class="opacity-0 group-hover:opacity-100">
+              <rect x="1.5" y="1.5" width="5" height="5" stroke="rgba(0,0,0,0.5)" stroke-width="1.2" fill="none"/>
+            </svg>
+          </button>
+        </template>
+        <span class="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight whitespace-nowrap select-none ml-1">LLM Proxy Gateway</span>
       </div>
 
       <!-- Center: nav tabs -->
@@ -48,7 +77,7 @@ function navigate(path: string) {
           v-for="tab in tabs"
           :key="tab.path"
           :class="[
-            'px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 inline-flex items-center gap-1.5 cursor-pointer',
+            'px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 inline-flex items-center gap-1 cursor-pointer',
             isActive(tab.path)
               ? 'bg-blue-100 text-blue-700 shadow-sm dark:bg-blue-900/40 dark:text-blue-300'
               : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200',
@@ -56,7 +85,7 @@ function navigate(path: string) {
           :data-testid="tab.testId"
           @click="navigate(tab.path)"
         >
-          <span :class="['text-base', tab.icon]" />
+          <span :class="['text-sm', tab.icon]" />
           <span class="hidden lg:inline">{{ t(tab.key) }}</span>
         </button>
       </nav>
@@ -66,7 +95,7 @@ function navigate(path: string) {
         <!-- Settings button -->
         <button
           :class="[
-            'px-2 py-1.5 rounded-lg text-sm transition-colors inline-flex items-center cursor-pointer',
+            'px-1.5 py-1.5 rounded-lg text-xs transition-colors inline-flex items-center cursor-pointer',
             isActive('/settings')
               ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
               : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200',
@@ -75,19 +104,19 @@ function navigate(path: string) {
           data-testid="nav-settings-btn"
           @click="navigate('/settings')"
         >
-          <span class="text-base i-tabler-settings" />
+          <span class="text-sm i-tabler-settings" />
         </button>
 
         <!-- Windows window controls -->
         <template v-if="isWindows">
-          <button class="w-9 h-9 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors" @click="sendWindowControl('minimize')" title="Minimize">
-            <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <button class="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors" @click="sendWindowControl('minimize')" title="Minimize">
+            <svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
           </button>
-          <button class="w-9 h-9 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors" @click="sendWindowControl('maximize')" title="Maximize">
-            <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" stroke="currentColor" stroke-width="1.2" fill="none" rx="1"/></svg>
+          <button class="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors" @click="sendWindowControl('maximize')" title="Maximize">
+            <svg width="10" height="10" viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" stroke="currentColor" stroke-width="1.2" fill="none" rx="1"/></svg>
           </button>
-          <button class="w-9 h-9 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 cursor-pointer transition-colors" @click="sendWindowControl('close')" title="Close">
-            <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <button class="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 cursor-pointer transition-colors" @click="sendWindowControl('close')" title="Close">
+            <svg width="10" height="10" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
           </button>
         </template>
       </div>

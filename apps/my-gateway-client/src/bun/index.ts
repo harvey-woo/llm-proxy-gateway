@@ -1,7 +1,8 @@
 import { homedir } from "node:os";
 import { resolve, join, dirname } from "node:path";
 import { mkdirSync, accessSync, constants, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { BrowserWindow, BrowserView } from "electrobun/bun";
+import { BrowserWindow, BrowserView, Tray } from "electrobun/bun";
+import type { MenuItemConfig } from "electrobun/bun";
 import Electrobun from "electrobun/bun";
 
 const DEFAULT_PORT = 9000;
@@ -118,7 +119,71 @@ async function main() {
     title: "LLM Proxy Gateway",
     url: `http://localhost:${PORT}`,
     frame: { x: 0, y: 0, width: 640, height: 520 },
-    titleBarStyle: "hiddenInset",
+    titleBarStyle: "hidden",
+  });
+
+  // Prevent electrobun from quitting the app on window close
+  let quitAllowed = false;
+  const origExit = process.exit.bind(process);
+  (process as any).exit = ((code?: number) => {
+    if (quitAllowed) origExit(code);
+    // Otherwise — silently ignore, app stays alive in tray
+  }) as typeof process.exit;
+
+  let tray: Tray;
+
+  // ── Helper to create/recreate the window ──
+  let _win: BrowserWindow | null = win;
+
+  function showWindow() {
+    if (_win) {
+      _win.show();
+      _win.focus();
+    } else {
+      _win = new BrowserWindow({
+        title: "LLM Proxy Gateway",
+        url: `http://localhost:${PORT}`,
+        frame: { x: 0, y: 0, width: 640, height: 520 },
+        titleBarStyle: "hiddenInset",
+      });
+      _win.show();
+      _win.focus();
+    }
+  }
+
+  // ── System tray ──
+  const trayIcon = join(import.meta.dirname, "..", "..", "packages", "frontend", "public", "AppIcon.icns");
+  tray = new Tray({
+    title: "LLM Proxy Gateway",
+    image: existsSync(trayIcon) ? trayIcon : "",
+    width: 16,
+    height: 16,
+  });
+
+  const trayMenu: MenuItemConfig[] = [
+    { label: "Show Window", action: "show-window", enabled: true },
+    { type: "separator" },
+    { label: "Quit", action: "quit-app", enabled: true },
+  ];
+  tray.setMenu(trayMenu);
+
+  // Show window on tray click (left-click)
+  tray.on("tray-clicked", () => {
+    showWindow();
+  });
+
+  // Handle tray menu actions via generic host events
+  // Menu item clicks fire "tray-menu-item-clicked" with { action, data }
+  Electrobun.events.on("tray-menu-item-clicked", (event: { detail: { action: string; data?: unknown } }) => {
+    const action = event?.detail?.action;
+    if (action === "show-window") {
+      showWindow();
+    } else if (action === "quit-app") {
+      quitAllowed = true;
+      tray.remove();
+      if (_win) _win.close();
+      stop().then(() => origExit(0));
+    }
   });
 
   // IPC: listen for window control and settings commands from frontend
@@ -129,9 +194,15 @@ async function main() {
     if (msg.type === "window-control") {
       const action = msg.action as "minimize" | "maximize" | "close";
       switch (action) {
-        case "minimize": win.minimize(); break;
-        case "maximize": win.isMaximized() ? win.unmaximize() : win.maximize(); break;
-        case "close": win.close(); break;
+        case "minimize": if (_win) _win.minimize(); break;
+        case "maximize": if (_win) _win.isMaximized() ? _win.unmaximize() : _win.maximize(); break;
+        case "close":
+          if (_win) {
+            _win.hide();
+          } else {
+            showWindow();
+          }
+          break;
       }
     }
 
@@ -144,7 +215,14 @@ async function main() {
     }
   });
 
-  process.on("SIGINT", async () => { await stop(); process.exit(0); });
+  // Listen for window close (native red X, Cmd+W) — mark as destroyed
+  Electrobun.events.on("close", (event: { data: { id: number } }) => {
+    if (_win && event.data.id === (_win as any).id) {
+      _win = null;
+    }
+  });
+
+  process.on("SIGINT", async () => { quitAllowed = true; tray.remove(); if (_win) _win.close(); await stop(); origExit(0); });
 }
 
 main().catch((err) => { console.error("[GW] Fatal:", err); process.exit(1); });

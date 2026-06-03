@@ -81,10 +81,8 @@ function needsRestart() {
 
 // ── Init ──
 onMounted(() => {
-  const stored = localStorage.getItem(STORAGE_LANG) as Lang | null;
-  applyLang(stored || (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en"));
-  const storedTheme = localStorage.getItem(STORAGE_THEME) as Theme | null;
-  applyTheme(storedTheme || "auto");
+  lang.value = (localStorage.getItem(STORAGE_LANG) as Lang) || (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en");
+  theme.value = (localStorage.getItem(STORAGE_THEME) as Theme) || "auto";
   if (isDesktop) loadPort();
 });
 </script>
