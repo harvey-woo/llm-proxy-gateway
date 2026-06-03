@@ -110,8 +110,11 @@ describe("getTemplateUrl", () => {
   });
 
   it("returns null when no env var and config.yaml has no template_url", () => {
+    const origUrl = process.env.TEMPLATE_URL;
+    delete process.env.TEMPLATE_URL;
     // config.yaml has template_url commented out, so raw.template_url is undefined
     const result = getTemplateUrl();
     expect(result).toBeNull();
+    if (origUrl !== undefined) process.env.TEMPLATE_URL = origUrl;
   });
 });

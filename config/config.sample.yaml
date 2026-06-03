@@ -2,8 +2,8 @@
 # 复制此文件为 config.yaml 并按需修改
 # API Keys 存储在数据库中，不在本文件内
 
-# 供应商模板源（从 GitHub 拉取预配置的供应商模板）
-template_url: "https://raw.githubusercontent.com/harvey-woo/llm-proxy-gateway/main/config/templates.json"
+# 供应商模板源可以通过 config.yaml 的 template_url 或 TEMPLATE_URL 环境变量设置
+# template_url: "https://raw.githubusercontent.com/harvey-woo/llm-proxy-gateway/main/config/templates.json"
 
 providers: {}
 model_aliases: {}
