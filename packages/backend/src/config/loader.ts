@@ -1,7 +1,7 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
 import {
   ModelAliasSchema,
   ProviderSchema,
@@ -110,6 +110,24 @@ export function loadConfig(configDir?: string): LoadedConfig {
   }
 
   return { models, providers };
+}
+
+/**
+ * Write in-memory providers back to config.yaml, preserving other keys.
+ */
+export function saveProvidersToConfig(
+  providers: Map<string, { id: string; [key: string]: unknown }>,
+): void {
+  const dir = getConfigDir();
+  const filePath = join(dir, "config.yaml");
+  const raw = loadYamlFile<Record<string, unknown>>(filePath);
+  const providerObj: Record<string, unknown> = {};
+  for (const [id, p] of providers.entries()) {
+    const { id: _, ...rest } = p;
+    providerObj[id] = rest;
+  }
+  raw.providers = providerObj;
+  writeFileSync(filePath, stringify(raw, null, 2));
 }
 
 /**

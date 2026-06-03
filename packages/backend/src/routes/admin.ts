@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { LoadedConfig } from "../config/loader.js";
+import { saveProvidersToConfig } from "../config/loader.js";
 import type { ModelAlias } from "@llm-proxy/shared/schemas";
 import { getDb } from "../db/database.js";
 import { randomUUID } from "node:crypto";
@@ -268,6 +269,7 @@ export function createAdminRoutes(
     };
 
     storeRef.current.providers.set(id, newItem);
+    saveProvidersToConfig(storeRef.current.providers);
 
     return c.json(
       {
@@ -335,6 +337,7 @@ export function createAdminRoutes(
       storeRef.current.providers.delete(id);
     }
     storeRef.current.providers.set(updatedId, updated);
+    saveProvidersToConfig(storeRef.current.providers);
 
     return c.json({
       success: true,
@@ -354,6 +357,7 @@ export function createAdminRoutes(
       return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
     }
     storeRef.current.providers.delete(id);
+    saveProvidersToConfig(storeRef.current.providers);
     return c.json({ success: true });
   });
 
@@ -485,6 +489,7 @@ export function createAdminRoutes(
     const newAuth = { key: body.key, name: body.name };
     provider.auths = [...(provider.auths ?? []), newAuth];
     storeRef.current.providers.set(providerId, provider);
+    saveProvidersToConfig(storeRef.current.providers);
 
     return c.json(
       {
@@ -550,6 +555,7 @@ export function createAdminRoutes(
     }
     storeRef.current.providers.set(providerId, provider);
     onAuthChange?.();
+    saveProvidersToConfig(storeRef.current.providers);
 
     return c.json({
       success: true,
@@ -598,6 +604,7 @@ export function createAdminRoutes(
     }
     storeRef.current.providers.set(providerId, provider);
     onAuthChange?.();
+    saveProvidersToConfig(storeRef.current.providers);
 
     return c.json({ success: true });
   });

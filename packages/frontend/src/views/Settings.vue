@@ -87,7 +87,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-2xl mx-auto px-4 py-6">
+  <div class="max-w-2xl mx-auto py-6">
     <h1 class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ t("settings.title") }}</h1>
     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ t("settings.subtitle") }}</p>
 
