@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 15
 
     env:
-      TEMPLATE_URL: "https://raw.githubusercontent.com/harvey-woo/llm-proxy-gateway/main/config/templates.json"
+      TEMPLATE_URL: "https://raw.githubusercontent.com/${{ github.repository }}/main/config/templates.json"
 
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
     timeout-minutes: 30
 
     env:
-      TEMPLATE_URL: "https://raw.githubusercontent.com/harvey-woo/llm-proxy-gateway/main/config/templates.json"
+      TEMPLATE_URL: "https://raw.githubusercontent.com/${{ github.repository }}/main/config/templates.json"
 
     steps:
       - uses: actions/checkout@v4
