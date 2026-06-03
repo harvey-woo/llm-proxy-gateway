@@ -119,6 +119,10 @@ jobs:
           if [ -f "../../packages/frontend/public/AppIcon.icns" ]; then
             cp "../../packages/frontend/public/AppIcon.icns" "$RESOURCES/AppIcon.icns"
           fi
+          # Tray icon
+          if [ -f "../../packages/frontend/public/tray-icon.png" ]; then
+            cp "../../packages/frontend/public/tray-icon.png" "$RESOURCES/tray-icon.png"
+          fi
           echo "Bundle done: $RESOURCES"
         shell: bash
 

@@ -10,11 +10,11 @@ export default {
     bun: {
       entrypoint: "src/bun/index.ts",
     },
-    icon: {
-      path: "../../packages/frontend/public/AppIcon.icns",
+    mac: {
+      icons: "icon.iconset",
     },
-    runtime: {
-      exitOnLastWindowClosed: false,
-    },
+  },
+  runtime: {
+    exitOnLastWindowClosed: false,
   },
 } satisfies ElectrobunConfig;

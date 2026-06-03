@@ -152,9 +152,13 @@ async function main() {
   }
 
   // ── System tray ──
-  const trayIcon = join(import.meta.dirname, "..", "..", "packages", "frontend", "public", "AppIcon.icns");
+  const trayIcon = mode === "production"
+    ? join(paths.configDir, "..", "tray-icon.png")
+    : join(findWorkspaceRoot(), "packages", "frontend", "public", "tray-icon.png");
+  console.log(`[GW] Tray icon: ${trayIcon} exists=${existsSync(trayIcon)}`);
+  // Use zero-width space to avoid taking space, but prevent width calculation bug in Electrobun
   tray = new Tray({
-    title: "LLM Proxy Gateway",
+    title: "\u200B",
     image: existsSync(trayIcon) ? trayIcon : "",
     width: 16,
     height: 16,
