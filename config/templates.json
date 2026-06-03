@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "updated_at": "2026-06-03",
+  "templates": [
+    {
+      "id": "aliyun",
+      "name": "阿里云百炼",
+      "base_url": "https://coding.dashscope.aliyuncs.com",
+      "api_format": "openai_chat",
+      "currency": "CNY",
+      "enabled": true,
+      "description": "阿里云百炼大模型服务平台",
+      "pricing_model": "subscription",
+      "unit_price": 0.003,
+      "subscription": {
+        "price": 200,
+        "period": "month",
+        "billing_type": "weighted_requests",
+        "included_requests": 90000,
+        "overage_unit_price": 0
+      },
+      "models": [
+        { "name": "qwen3.6-plus", "input_price": 2, "output_price": 8 },
+        { "name": "glm-5", "input_price": 5, "output_price": 20 }
+      ],
+      "rate_limits": [
+        { "type": "weighted_requests", "period": "5h", "max": 6000 },
+        { "type": "weighted_requests", "period": "week", "max": 45000 }
+      ]
+    },
+    {
+      "id": "ikuncode",
+      "name": "IKunCode",
+      "base_url": "https://api.ikuncode.cc",
+      "api_format": "anthropic_messages",
+      "currency": "CNY",
+      "enabled": true,
+      "description": "IKunCode 第三方 API 代理",
+      "pricing_model": "per_model_token",
+      "models": [
+        { "name": "claude-sonnet-4-6", "input_price": 2.76, "output_price": 13.80, "cache_hit_price": 0.28, "cache_create_price": 3.45 },
+        { "name": "claude-opus-4-8", "input_price": 4.60, "output_price": 23.00, "cache_hit_price": 0.46, "cache_create_price": 5.75 }
+      ],
+      "rate_limits": []
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "base_url": "https://api.deepseek.com",
+      "api_format": "openai_chat",
+      "currency": "CNY",
+      "enabled": true,
+      "description": "DeepSeek 官方 API",
+      "pricing_model": "per_model_token",
+      "models": [
+        { "name": "deepseek-chat", "alias": "deepseek-v3", "input_price": 0.5, "output_price": 2, "cache_hit_price": 0.025 },
+        { "name": "deepseek-reasoner", "alias": "deepseek-r1", "input_price": 0.5, "output_price": 2, "cache_hit_price": 0.025 }
+      ],
+      "rate_limits": []
+    },
+    {
+      "id": "stepfun",
+      "name": "阶跃星辰 (StepFun)",
+      "base_url": "https://api.stepfun.com/v1",
+      "api_format": "openai_chat",
+      "currency": "CNY",
+      "enabled": true,
+      "description": "StepFun 官方 API",
+      "pricing_model": "per_model_token",
+      "models": [
+        { "name": "step-2-16k-nightly", "alias": "step-2", "input_price": 0.15, "output_price": 0.15 },
+        { "name": "step-1-8k", "alias": "step-1", "input_price": 0.02, "output_price": 0.03 }
+      ],
+      "rate_limits": []
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "base_url": "https://api.openai.com",
+      "api_format": "openai_chat",
+      "currency": "USD",
+      "enabled": true,
+      "description": "OpenAI 官方 API",
+      "pricing_model": "per_model_token",
+      "models": [
+        { "name": "gpt-4o", "input_price": 2.5, "output_price": 10, "cache_hit_price": 1.25, "cache_create_price": 2.5 },
+        { "name": "gpt-4o-mini", "input_price": 0.15, "output_price": 0.6, "cache_hit_price": 0.075, "cache_create_price": 0.15 }
+      ],
+      "rate_limits": []
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "base_url": "https://api.anthropic.com",
+      "api_format": "anthropic_messages",
+      "currency": "USD",
+      "enabled": true,
+      "description": "Anthropic 官方 API",
+      "pricing_model": "per_model_token",
+      "models": [
+        { "name": "claude-sonnet-4-20250514", "alias": "claude-sonnet-4", "input_price": 3, "output_price": 15, "cache_hit_price": 0.3, "cache_create_price": 3.75 },
+        { "name": "claude-haiku-3-5-20241022", "alias": "claude-haiku", "input_price": 0.8, "output_price": 4, "cache_hit_price": 0.08, "cache_create_price": 1 }
+      ],
+      "rate_limits": []
+    }
+  ]
+}
