@@ -40,9 +40,9 @@ jobs:
       - name: Build frontend
         run: yarn workspace @llm-proxy/frontend exec -- vite build
 
-  # ── Build desktop client (every push to main; release on tag) ──
+  # ── Build desktop client & create release (tags only) ──
   release:
-    if: github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-latest
     timeout-minutes: 30
 
@@ -82,25 +82,46 @@ jobs:
       - name: Bundle resources
         run: |
           cd apps/my-gateway-client
-          bash scripts/bundle-resources.sh 2>&1
+          APP=$(find build -name "LLM Proxy Gateway*.app" -type d -maxdepth 3 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then
+            echo "No .app bundle found, skipping bundle"
+            exit 0
+          fi
+          RESOURCES="$APP/Contents/Resources"
+          # Backend dist
+          if [ -d "../../packages/backend/dist" ]; then
+            mkdir -p "$RESOURCES/backend"
+            cp -r "../../packages/backend/dist/." "$RESOURCES/backend/"
+          fi
+          # Config
+          mkdir -p "$RESOURCES/config"
+          cp ../../config/config.yaml "$RESOURCES/config/" 2>/dev/null || true
+          # Frontend dist
+          if [ -d "../../packages/frontend/dist" ]; then
+            mkdir -p "$RESOURCES/frontend"
+            cp -r "../../packages/frontend/dist/." "$RESOURCES/frontend/"
+          fi
+          # App icon
+          if [ -f "../../packages/frontend/public/AppIcon.icns" ]; then
+            cp "../../packages/frontend/public/AppIcon.icns" "$RESOURCES/AppIcon.icns"
+          fi
+          echo "Bundle done: $RESOURCES"
         shell: bash
 
       - name: Package artifact
         run: |
           cd apps/my-gateway-client
-          APP=$(ls -dt build/LLM\ Proxy\ Gateway*.app 2>/dev/null | head -1)
-          if [ -z "$APP" ]; then
-            APP=$(ls -dt build/*/LLM\ Proxy\ Gateway*.app 2>/dev/null | head -1)
-          fi
+          APP=$(find build -name "LLM Proxy Gateway*.app" -type d -maxdepth 3 2>/dev/null | head -1)
           if [ -z "$APP" ]; then
             echo "No .app bundle found"
             exit 1
           fi
           SHA=$(git rev-parse --short HEAD)
+          ARTIFACT_DIR="$GITHUB_WORKSPACE"
           ZIP="LLM-Proxy-Gateway-${SHA}-macos-arm64.zip"
-          ditto -c -k --keepParent "$APP" "build/${ZIP}"
+          ditto -c -k --keepParent "$APP" "${ARTIFACT_DIR}/${ZIP}"
           echo "artifact_name=${ZIP}" >> $GITHUB_ENV
-          echo "artifact_path=build/${ZIP}" >> $GITHUB_ENV
+          echo "artifact_path=${ARTIFACT_DIR}/${ZIP}" >> $GITHUB_ENV
 
       - name: Upload artifact (every push)
         uses: actions/upload-artifact@v4

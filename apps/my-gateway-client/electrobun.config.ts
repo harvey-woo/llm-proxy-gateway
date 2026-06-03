@@ -10,5 +10,8 @@ export default {
     bun: {
       entrypoint: "src/bun/index.ts",
     },
+    icon: {
+      path: "../../packages/frontend/public/AppIcon.icns",
+    },
   },
 } satisfies ElectrobunConfig;
