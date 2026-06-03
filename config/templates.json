@@ -3,13 +3,13 @@
   "updated_at": "2026-06-03",
   "templates": [
     {
-      "id": "aliyun",
-      "name": "阿里云百炼",
+      "id": "coding-plan",
+      "name": "百炼 Coding Plan",
       "base_url": "https://coding.dashscope.aliyuncs.com/v1",
       "api_format": "openai_chat",
       "currency": "CNY",
       "enabled": true,
-      "description": "阿里云百炼大模型服务平台",
+      "description": "阿里云百炼 Coding Plan 大模型服务平台",
       "pricing_model": "subscription",
       "unit_price": 0.003,
       "subscription": {
@@ -27,6 +27,22 @@
         { "type": "weighted_requests", "period": "5h", "max": 6000 },
         { "type": "weighted_requests", "period": "week", "max": 45000 }
       ]
+    },
+    {
+      "id": "googleai",
+      "name": "Google AI",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "api_format": "openai_chat",
+      "currency": "USD",
+      "enabled": true,
+      "description": "Google AI Gemini API（OpenAI 兼容端点）",
+      "pricing_model": "per_model_token",
+      "models": [
+        { "name": "gemini-3.5-flash", "input_price": 0, "output_price": 0, "cache_hit_price": 0, "cache_create_price": 0 },
+        { "name": "gemini-3.1-pro-preview", "input_price": 0, "output_price": 0, "cache_hit_price": 0, "cache_create_price": 0 },
+        { "name": "gemini-2.5-flash", "input_price": 0, "output_price": 0, "cache_hit_price": 0, "cache_create_price": 0 }
+      ],
+      "rate_limits": []
     },
     {
       "id": "ikuncode",

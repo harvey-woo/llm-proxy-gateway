@@ -444,7 +444,7 @@ onMounted(async () => {
               <label
                 v-for="mn in getProviderModels(sel.providerId)"
                 :key="mn"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 bg-white rounded border border-gray-200 cursor-pointer hover:border-blue-300 text-sm"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 text-sm"
                 :class="{ 'border-blue-500 bg-blue-50 dark:bg-blue-900/30': sel.selectedModels.includes(mn) }"
               >
                 <input
@@ -539,7 +539,7 @@ onMounted(async () => {
               <label
                 v-for="mn in getProviderModels(sel.providerId)"
                 :key="mn"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 bg-white rounded border border-gray-200 cursor-pointer hover:border-blue-300 text-sm"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 text-sm"
                 :class="{ 'border-blue-500 bg-blue-50 dark:bg-blue-900/30': sel.selectedModels.includes(mn) }"
               >
                 <input

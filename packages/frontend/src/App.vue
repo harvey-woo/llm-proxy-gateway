@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { RouterView } from "vue-router";
 import AppNav from "./components/AppNav.vue";
 import ToastContainer from "./components/ToastContainer.vue";
 
+const isDesktop = ref(false);
 const { locale } = useI18n();
 
 // ── Theme init ──
@@ -37,6 +38,8 @@ onMounted(() => {
 
   const lang = localStorage.getItem(LANG_KEY) as Lang | null;
   applyLang(lang || (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en"));
+
+  isDesktop.value = typeof window !== "undefined" && !!(window as any).__electrobun;
 });
 </script>
 
@@ -44,7 +47,7 @@ onMounted(() => {
   <div class="min-h-screen h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 text-gray-900 dark:text-gray-100">
     <AppNav />
     <main class="flex-1 overflow-y-auto">
-      <div class="page-container">
+      <div :class="isDesktop ? '' : 'page-container'">
         <router-view v-slot="{ Component }">
           <Transition name="page" mode="out-in">
             <component :is="Component" />

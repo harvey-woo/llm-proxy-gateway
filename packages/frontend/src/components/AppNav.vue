@@ -35,7 +35,7 @@ function navigate(path: string) {
 
 <template>
   <header class="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 select-none electrobun-webkit-app-region-drag">
-    <div class="flex items-center justify-between h-14 px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-14 px-4 sm:px-6 lg:px-8" :class="isDesktop ? '' : 'max-w-7xl mx-auto'">
       
       <!-- Left: Title (and traffic lights on Desktop Mac) -->
       <div class="flex items-center gap-3 shrink-0">

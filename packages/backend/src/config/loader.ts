@@ -56,6 +56,8 @@ function loadYamlFile<T>(filePath: string): T {
  */
 export function loadConfig(configDir?: string): LoadedConfig {
   const dir = configDir ?? getConfigDir();
+  // Cache the resolved dir so getTemplateUrl() uses the same path
+  _configDir = dir;
   const filePath = join(dir, "config.yaml");
 
   if (!existsSync(filePath)) {
