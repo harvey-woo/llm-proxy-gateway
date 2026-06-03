@@ -31,86 +31,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Setup config for tests
+      - name: Setup config
         run: |
           cat > config/config.yaml << 'CONFIG_EOF'
-          template_url: "${{ env.TEMPLATE_URL }}"
-          providers:
-            aliyun:
-              name: 阿里云百炼
-              base_url: https://coding.dashscope.aliyuncs.com
-              api_format: openai_chat
-              currency: CNY
-              models:
-                - name: qwen3.6-plus
-                  input_price: 2
-                  output_price: 8
-                - name: glm-5
-                  input_price: 5
-                  output_price: 20
-              pricing_model: subscription
-              unit_price: 0.003
-              subscription:
-                price: 200
-                period: month
-                billing_type: weighted_requests
-                included_requests: 90000
-                overage_unit_price: 0
-              rate_limits:
-                - type: weighted_requests
-                  period: 5h
-                  max: 6000
-                - type: weighted_requests
-                  period: week
-                  max: 45000
-            ikuncode:
-              name: IKunCode
-              base_url: https://api.ikunco.de
-              api_format: anthropic_messages
-              currency: CNY
-              pricing_model: per_model_token
-              models:
-                - name: claude-sonnet-4-6
-                  input_price: 2.76
-                  output_price: 13.80
-            deepseek:
-              name: Deepseek
-              base_url: https://api.deepseek.com
-              api_format: openai_chat
-              currency: CNY
-              pricing_model: per_model_token
-              models:
-                - name: deepseek-v4-pro
-                  input_price: 3
-                  output_price: 6
-                - name: deepseek-v4-flash
-                  input_price: 1
-                  output_price: 2
-            stepfun:
-              name: 阶跃星辰
-              base_url: https://api.stepfun.com
-              api_format: openai_chat
-              currency: CNY
-              pricing_model: per_model_token
-              models:
-                - name: step-3.7-flash
-                  input_price: 1.35
-                  output_price: 8.10
-          model_aliases:
-            qwen3.6-plus:
-              strategy: proportional
-              models:
-                - provider_id: aliyun
-                  model_name: qwen3.6-plus
-              enabled: true
-              description: "Qwen 3.6 Plus via 阿里云百炼"
-            deepseek-v4-flash:
-              strategy: proportional
-              models:
-                - provider_id: deepseek
-                  model_name: deepseek-v4-flash
-              enabled: true
-              description: "DeepSeek V4 Flash"
+          providers: {}
+          model_aliases: {}
           CONFIG_EOF
 
       - name: Lint
@@ -144,86 +69,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Setup config for tests
+      - name: Setup config
         run: |
           cat > config/config.yaml << 'CONFIG_EOF'
-          template_url: "${{ env.TEMPLATE_URL }}"
-          providers:
-            aliyun:
-              name: 阿里云百炼
-              base_url: https://coding.dashscope.aliyuncs.com
-              api_format: openai_chat
-              currency: CNY
-              models:
-                - name: qwen3.6-plus
-                  input_price: 2
-                  output_price: 8
-                - name: glm-5
-                  input_price: 5
-                  output_price: 20
-              pricing_model: subscription
-              unit_price: 0.003
-              subscription:
-                price: 200
-                period: month
-                billing_type: weighted_requests
-                included_requests: 90000
-                overage_unit_price: 0
-              rate_limits:
-                - type: weighted_requests
-                  period: 5h
-                  max: 6000
-                - type: weighted_requests
-                  period: week
-                  max: 45000
-            ikuncode:
-              name: IKunCode
-              base_url: https://api.ikunco.de
-              api_format: anthropic_messages
-              currency: CNY
-              pricing_model: per_model_token
-              models:
-                - name: claude-sonnet-4-6
-                  input_price: 2.76
-                  output_price: 13.80
-            deepseek:
-              name: Deepseek
-              base_url: https://api.deepseek.com
-              api_format: openai_chat
-              currency: CNY
-              pricing_model: per_model_token
-              models:
-                - name: deepseek-v4-pro
-                  input_price: 3
-                  output_price: 6
-                - name: deepseek-v4-flash
-                  input_price: 1
-                  output_price: 2
-            stepfun:
-              name: 阶跃星辰
-              base_url: https://api.stepfun.com
-              api_format: openai_chat
-              currency: CNY
-              pricing_model: per_model_token
-              models:
-                - name: step-3.7-flash
-                  input_price: 1.35
-                  output_price: 8.10
-          model_aliases:
-            qwen3.6-plus:
-              strategy: proportional
-              models:
-                - provider_id: aliyun
-                  model_name: qwen3.6-plus
-              enabled: true
-              description: "Qwen 3.6 Plus via 阿里云百炼"
-            deepseek-v4-flash:
-              strategy: proportional
-              models:
-                - provider_id: deepseek
-                  model_name: deepseek-v4-flash
-              enabled: true
-              description: "DeepSeek V4 Flash"
+          providers: {}
+          model_aliases: {}
           CONFIG_EOF
 
       - name: Install Bun
