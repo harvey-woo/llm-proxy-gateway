@@ -73,12 +73,20 @@ cp config/config.sample.yaml config/config.yaml
 # 运行后端 + 前端开发服务器（Vite HMR）
 yarn dev
 
-# 或运行桌面客户端
+# 或运行桌面客户端（开发模式）
 cd apps/my-gateway-client
 bunx electrobun dev
 ```
 
 打开 http://localhost:9000 访问管理界面。
+
+### 桌面客户端（构建版本）
+
+下载解压后首次打开，终端执行以下命令去除隔离标记，之后即可正常双击打开：
+
+```bash
+xattr -d com.apple.quarantine LLM\ Proxy\ Gateway*.app
+```
 
 ### 配置
 

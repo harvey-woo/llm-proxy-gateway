@@ -73,12 +73,21 @@ cp config/config.sample.yaml config/config.yaml
 # Run backend + frontend dev server (Vite HMR)
 yarn dev
 
-# Or run the desktop client
+# Or run the desktop client (dev mode)
 cd apps/my-gateway-client
 bunx electrobun dev
 ```
 
 Open http://localhost:9000 to access the management UI.
+
+### Desktop App (Built Release)
+
+After downloading and extracting, run this once in terminal to remove the quarantine
+flag — then you can double-click to open normally:
+
+```bash
+xattr -d com.apple.quarantine LLM\ Proxy\ Gateway*.app
+```
 
 ### Configuration
 
