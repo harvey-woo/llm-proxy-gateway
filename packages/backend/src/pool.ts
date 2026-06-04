@@ -1,6 +1,28 @@
 import type { Provider, Auth, ModelAlias } from "@llm-proxy/shared/schemas";
 import { RateLimiter, type RateLimitCheckResult } from "./rate_limiter.js";
 
+// ── Helper: check OAuth token expiry ──
+
+interface OAuthMeta {
+  expires_at?: string;
+}
+
+function parseOAuthMeta(raw: string | undefined | null): OAuthMeta | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as OAuthMeta;
+  } catch {
+    return null;
+  }
+}
+
+function isOAuthTokenExpired(auth: Auth): boolean {
+  if (auth.auth_type !== "oauth") return false;
+  const meta = parseOAuthMeta(auth.oauth_metadata);
+  if (!meta?.expires_at) return false;
+  return new Date(meta.expires_at).getTime() < Date.now();
+}
+
 export interface AuthEntry {
   auth: Auth;
   providerId: string;
@@ -87,6 +109,8 @@ export class ProviderPool {
       for (const auth of providerAuths.values()) {
         // Status check: if status is not set (backward compat), treat as active
         if (auth.status && auth.status !== "active") continue;
+        // OAuth token expiry check: skip expired tokens
+        if (isOAuthTokenExpired(auth)) continue;
         entries.push({ auth, providerId, provider });
       }
     }

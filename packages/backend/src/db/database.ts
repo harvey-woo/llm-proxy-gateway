@@ -49,6 +49,8 @@ export interface ProviderAuth {
   provider_id: string;
   key: string;
   name: string | null;
+  auth_type: string;       // "api_key" | "oauth" — defaults to "api_key"
+  metadata: string | null; // JSON string for OAuth tokens
   created_at: string;
   updated_at: string;
 }
@@ -180,6 +182,23 @@ export async function initDb(dbPath?: string): Promise<void> {
     .on("provider_auths")
     .column("provider_id")
     .execute();
+
+  // Migration: add auth_type and metadata columns (for OAuth support)
+  // auth_type defaults to "api_key" — existing records are automatically compatible
+  for (const col of ["auth_type"]) {
+    try {
+      await db.schema
+        .alterTable("provider_auths")
+        .addColumn(col, "text", (c) => c.notNull().defaultTo("api_key"))
+        .execute();
+    } catch { /* already exists */ }
+  }
+  try {
+    await db.schema
+      .alterTable("provider_auths")
+      .addColumn("metadata", "text")
+      .execute();
+  } catch { /* already exists */ }
 
   await db.schema
     .createTable("stats_aggregates")

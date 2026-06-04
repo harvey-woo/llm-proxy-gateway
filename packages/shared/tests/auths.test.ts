@@ -13,9 +13,12 @@ describe("AuthSchema", () => {
     name: "Test Key",
   };
 
-  it("should parse a minimal valid auth", () => {
+  it("should parse a minimal valid api_key auth (backward compat)", () => {
     const result = AuthSchema.safeParse(validAuth);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.auth_type).toBe("api_key"); // default
+    }
   });
 
   it("should parse auth without name (optional)", () => {
@@ -33,14 +36,22 @@ describe("AuthSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("should reject key shorter than 8 chars", () => {
+  it("should accept short keys (access tokens can be short)", () => {
     const result = AuthSchema.safeParse({ key: "short", name: "Test" });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it("should reject key longer than 256 chars", () => {
+  it("should accept long keys up to 512 chars", () => {
     const result = AuthSchema.safeParse({
-      key: "a".repeat(257),
+      key: "a".repeat(512),
+      name: "Test",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject key longer than 512 chars", () => {
+    const result = AuthSchema.safeParse({
+      key: "a".repeat(513),
       name: "Test",
     });
     expect(result.success).toBe(false);
@@ -59,19 +70,52 @@ describe("AuthSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("should accept key at max length (256)", () => {
-    const result = AuthSchema.safeParse({
-      key: "a".repeat(256),
-      name: "Test",
-    });
-    expect(result.success).toBe(true);
-  });
-
   it("should ignore unknown fields gracefully", () => {
     const result = AuthSchema.safeParse({
       key: "sk-tes...5678",
       name: "Test",
       role: "admin",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // ── OAuth auth type tests ──
+
+  it("should parse OAuth auth with valid fields", () => {
+    const result = AuthSchema.safeParse({
+      key: "access-token-here",
+      name: "Codex Key",
+      auth_type: "oauth",
+      oauth_provider: "codex",
+      oauth_metadata: JSON.stringify({
+        access_token: "access-token-here",
+        refresh_token: "refresh-token-here",
+        id_token: "eyJ...xxx",
+        account_id: "acc_123",
+        email: "user@example.com",
+        plan_type: "plus",
+        expires_at: "2026-09-02T08:49:20.840Z",
+      }),
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.auth_type).toBe("oauth");
+      expect(result.data.oauth_provider).toBe("codex");
+    }
+  });
+
+  it("should default auth_type to api_key when omitted", () => {
+    const result = AuthSchema.safeParse({ key: "sk-test...1234" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.auth_type).toBe("api_key");
+    }
+  });
+
+  it("should allow explicit api_key auth_type", () => {
+    const result = AuthSchema.safeParse({
+      key: "sk-test...1234",
+      auth_type: "api_key",
     });
     expect(result.success).toBe(true);
   });
@@ -97,6 +141,16 @@ describe("CreateAuthSchema", () => {
     const result = CreateAuthSchema.safeParse({ name: "New Key" });
     expect(result.success).toBe(false);
   });
+
+  it("should parse create with OAuth fields", () => {
+    const result = CreateAuthSchema.safeParse({
+      key: "oauth-access-token",
+      auth_type: "oauth",
+      oauth_provider: "codex",
+      oauth_metadata: JSON.stringify({ access_token: "oauth-access-token" }),
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("UpdateAuthSchema", () => {
@@ -115,9 +169,13 @@ describe("UpdateAuthSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("should reject short key in update", () => {
-    const result = UpdateAuthSchema.safeParse({ key: "short" });
-    expect(result.success).toBe(false);
+  it("should accept oauth_type update", () => {
+    const result = UpdateAuthSchema.safeParse({
+      auth_type: "oauth",
+      oauth_provider: "codex",
+      oauth_metadata: JSON.stringify({ access_token: "new-token" }),
+    });
+    expect(result.success).toBe(true);
   });
 });
 

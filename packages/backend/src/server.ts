@@ -12,6 +12,7 @@ import { createAdminRoutes, createStoreState, type StoreState } from "./routes/a
 import { createStatsRoutes } from "./routes/stats.js";
 import { createRatesRoutes } from "./routes/rates.js";
 import { createTemplatesRoutes } from "./routes/templates.js";
+import { startTokenRefresher, stopTokenRefresher } from "./token_refresher.js";
 
 // ============================================================
 // App state
@@ -106,7 +107,16 @@ export async function createApp(opts?: {
       }
       const existingIndex = provider.auths.findIndex((a) => a.key === row.key);
       if (existingIndex === -1) {
-        provider.auths.push({ key: row.key, name: row.name ?? undefined });
+        const authEntry: Record<string, unknown> = {
+          key: row.key,
+          name: row.name ?? undefined,
+          auth_type: row.auth_type ?? "api_key",
+        };
+        if (row.auth_type === "oauth" && row.metadata) {
+          authEntry.oauth_metadata = row.metadata;
+          authEntry.oauth_provider = "codex";
+        }
+        provider.auths.push(authEntry as any);
       }
     }
     // Update pool auths map after loading from DB (pool was created before DB load)
@@ -114,6 +124,9 @@ export async function createApp(opts?: {
   } catch (err) {
     console.warn("[server] Failed to load auths from DB:", err);
   }
+
+  // Start the OAuth token refresher
+  startTokenRefresher(storeRef);
 
   // Config hot-reload is intentionally absent in production.
   // All mutations go through the admin API which directly updates storeRef.
@@ -205,6 +218,7 @@ export async function createApp(opts?: {
 
   // Cleanup function
   const stop = async () => {
+    stopTokenRefresher();
     await closeDb();
   };
 

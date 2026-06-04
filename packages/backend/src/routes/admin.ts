@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { LoadedConfig } from "../config/loader.js";
 import { saveProvidersToConfig } from "../config/loader.js";
-import type { ModelAlias } from "@llm-proxy/shared/schemas";
+import type { ModelAlias, Provider } from "@llm-proxy/shared/schemas";
 import { getDb } from "../db/database.js";
 import { randomUUID } from "node:crypto";
 
@@ -416,6 +416,8 @@ export function createAdminRoutes(
     const items = rows.map((row) => ({
       key: row.key,
       name: row.name ?? undefined,
+      auth_type: (row.auth_type as "api_key" | "oauth") ?? "api_key",
+      oauth_metadata: row.auth_type === "oauth" ? (row.metadata ?? undefined) : undefined,
       id: row.id,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -457,6 +459,8 @@ export function createAdminRoutes(
       data: {
         key: row.key,
         name: row.name ?? undefined,
+        auth_type: (row.auth_type as "api_key" | "oauth") ?? "api_key",
+        oauth_metadata: row.auth_type === "oauth" ? (row.metadata ?? undefined) : undefined,
         id: row.id,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -473,7 +477,13 @@ export function createAdminRoutes(
       return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
     }
 
-    const body = (await c.req.json()) as { key: string; name?: string };
+    const body = (await c.req.json()) as {
+      key: string;
+      name?: string;
+      auth_type?: "api_key" | "oauth";
+      oauth_provider?: string;
+      oauth_metadata?: string;
+    };
     if (!body.key) {
       return c.json({ success: false, error: "Key is required" }, 400);
     }
@@ -502,6 +512,9 @@ export function createAdminRoutes(
       });
     }
 
+    const authType = body.auth_type ?? "api_key";
+    const metadata = authType === "oauth" ? (body.oauth_metadata ?? null) : null;
+
     const now = new Date().toISOString();
     const id = randomUUID();
 
@@ -512,14 +525,24 @@ export function createAdminRoutes(
         provider_id: providerId,
         key: body.key,
         name: body.name ?? null,
+        auth_type: authType,
+        metadata,
         created_at: now,
         updated_at: now,
       })
       .execute();
 
     // Keep in-memory state in sync
-    const newAuth = { key: body.key, name: body.name };
-    provider.auths = [...(provider.auths ?? []), newAuth];
+    const newAuth: Record<string, unknown> = {
+      key: body.key,
+      name: body.name,
+      auth_type: authType,
+    };
+    if (authType === "oauth") {
+      newAuth.oauth_provider = body.oauth_provider;
+      newAuth.oauth_metadata = body.oauth_metadata;
+    }
+    provider.auths = [...(provider.auths ?? []), newAuth] as any;
     storeRef.current.providers.set(providerId, provider);
     saveProvidersToConfig(storeRef.current.providers);
 
@@ -527,7 +550,10 @@ export function createAdminRoutes(
       {
         success: true,
         data: {
-          ...newAuth,
+          key: body.key,
+          name: body.name,
+          auth_type: authType,
+          oauth_metadata: authType === "oauth" ? body.oauth_metadata : undefined,
           id,
           created_at: now,
           updated_at: now,
@@ -560,10 +586,20 @@ export function createAdminRoutes(
       return c.json({ success: false, error: "Auth key not found", code: "NOT_FOUND" }, 404);
     }
 
-    const body = (await c.req.json()) as { key?: string; name?: string };
+    const body = (await c.req.json()) as {
+      key?: string;
+      name?: string;
+      auth_type?: "api_key" | "oauth";
+      oauth_provider?: string;
+      oauth_metadata?: string;
+    };
 
     const updatedKey = body.key ?? row.key;
     const updatedName = body.name !== undefined ? body.name : (row.name ?? undefined);
+    const authType = body.auth_type ?? (row.auth_type as string) ?? "api_key";
+    const metadata = authType === "oauth"
+      ? (body.oauth_metadata ?? row.metadata ?? null)
+      : null;
     const now = new Date().toISOString();
 
     await db
@@ -571,6 +607,8 @@ export function createAdminRoutes(
       .set({
         key: updatedKey,
         name: updatedName ?? null,
+        auth_type: authType,
+        metadata,
         updated_at: now,
       })
       .where("id", "=", row.id)
@@ -578,12 +616,19 @@ export function createAdminRoutes(
 
     // Keep in-memory state in sync
     const authIndex = (provider.auths ?? []).findIndex((a) => a.key === key);
+    const updatedAuth: Record<string, unknown> = {
+      key: updatedKey,
+      name: updatedName,
+      auth_type: authType,
+    };
+    if (authType === "oauth") {
+      updatedAuth.oauth_provider = body.oauth_provider ?? "codex";
+      updatedAuth.oauth_metadata = metadata;
+    }
     if (authIndex !== -1) {
-      const updatedAuth = { key: updatedKey, name: updatedName };
-      provider.auths![authIndex] = updatedAuth;
+      provider.auths![authIndex] = updatedAuth as any;
     } else {
-      // Add to in-memory if not present (e.g., loaded from DB later)
-      provider.auths = [...(provider.auths ?? []), { key: updatedKey, name: updatedName }];
+      provider.auths = [...(provider.auths ?? []), updatedAuth as any];
     }
     storeRef.current.providers.set(providerId, provider);
     onAuthChange?.();
@@ -594,6 +639,8 @@ export function createAdminRoutes(
       data: {
         key: updatedKey,
         name: updatedName,
+        auth_type: authType,
+        oauth_metadata: authType === "oauth" ? metadata : undefined,
         id: row.id,
         created_at: row.created_at,
         updated_at: now,
@@ -670,6 +717,148 @@ export function createAdminRoutes(
         valid: false,
       },
     });
+  });
+
+  // ============================================================
+  // OAuth Import Endpoint — 导入 OAuth tokens 作为凭证
+  // ============================================================
+
+  // POST /api/oauth/import - Import OAuth tokens for a provider
+  // 接受两种输入格式：
+  //   1. 结构化字段: { provider_id, access_token, refresh_token?, email?, plan_type?, expires_at? }
+  //   2. 原始 Session JSON: { provider_id, session_json } — 从 https://chatgpt.com/api/auth/session 粘贴
+  router.post("/api/oauth/import", async (c) => {
+    const raw = (await c.req.json()) as Record<string, unknown>;
+
+    const providerId = raw.provider_id as string;
+    if (!providerId) {
+      return c.json({ success: false, error: "provider_id is required" }, 400);
+    }
+
+    let accessToken: string;
+    let refreshToken: string | undefined;
+    let email: string | undefined;
+    let planType: string | undefined;
+    let expiresAt: string | undefined;
+
+    // Case 1: raw session JSON pasted directly
+    if (raw.session_json && typeof raw.session_json === "string") {
+      try {
+        const session = JSON.parse(raw.session_json) as Record<string, unknown>;
+        accessToken = (session.accessToken ?? session.access_token ?? "") as string;
+        refreshToken = (session.sessionToken ?? session.refresh_token) as string | undefined;
+        email = ((session.user as Record<string, unknown>)?.email ?? (session as Record<string, unknown>).email) as string | undefined;
+        expiresAt = (session.expires as string) ?? undefined;
+        const account = session.account as Record<string, unknown> | undefined;
+        planType = (account?.planType ?? account?.plan_type) as string | undefined;
+
+        // Parse JWT for plan type if not in top-level
+        if (!planType && accessToken?.includes(".")) {
+          try {
+            const parts = accessToken.split(".");
+            const jwt = JSON.parse(atob(parts[1]));
+            const codexAuth = (jwt as Record<string, unknown>)["https://api.openai.com/auth"] as Record<string, unknown> | undefined;
+            if (codexAuth?.chatgpt_plan_type) {
+              planType = codexAuth.chatgpt_plan_type as string;
+            }
+          } catch { /* ignore JWT parse errors */ }
+        }
+      } catch {
+        return c.json({ success: false, error: "Invalid session_json: not valid JSON" }, 400);
+      }
+    } else {
+      // Case 2: individual fields
+      accessToken = raw.access_token as string;
+      refreshToken = raw.refresh_token as string | undefined;
+      email = raw.email as string | undefined;
+      planType = raw.plan_type as string | undefined;
+      expiresAt = raw.expires_at as string | undefined;
+    }
+
+    if (!accessToken) {
+      return c.json({ success: false, error: "access_token or session_json with accessToken is required" }, 400);
+    }
+
+    let provider = storeRef.current.providers.get(providerId);
+    if (!provider) {
+      // Auto-create a minimal provider entry if it doesn't exist
+      provider = {
+        id: providerId,
+        name: providerId,
+        base_url: "https://api.openai.com",
+        models: [],
+        auths: [],
+        rate_limits: [],
+        request_timeout_ms: 60000,
+        max_retries: 3,
+        enabled: true,
+        pricing_model: "per_request_weighted",
+        unit_price: 0.001,
+        currency: "USD",
+        api_format: "openai_chat",
+      } as Provider;
+      storeRef.current.providers.set(providerId, provider);
+    }
+
+    const db = await getDb();
+    const now = new Date().toISOString();
+    const id = randomUUID();
+
+    const metadata: Record<string, string> = {
+      access_token: accessToken,
+    };
+    if (refreshToken) metadata.refresh_token = refreshToken;
+    if (email) metadata.email = email;
+    if (planType) metadata.plan_type = planType;
+    if (expiresAt) metadata.expires_at = expiresAt;
+    metadata.token_refreshed_at = now;
+
+    const metadataJson = JSON.stringify(metadata);
+    const displayName = raw.name as string | undefined
+      ?? (email ? `Codex (${email})` : "Codex OAuth");
+
+    await db
+      .insertInto("provider_auths")
+      .values({
+        id,
+        provider_id: providerId,
+        key: accessToken,
+        name: displayName,
+        auth_type: "oauth",
+        metadata: metadataJson,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+
+    // Keep in-memory state in sync
+    const newAuth: Record<string, unknown> = {
+      key: accessToken,
+      name: displayName,
+      auth_type: "oauth",
+      oauth_provider: "codex",
+      oauth_metadata: metadataJson,
+    };
+    provider.auths = [...(provider.auths ?? []), newAuth] as any;
+    storeRef.current.providers.set(providerId, provider);
+    onAuthChange?.();
+    saveProvidersToConfig(storeRef.current.providers);
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          key: accessToken,
+          name: displayName,
+          auth_type: "oauth",
+          oauth_metadata: metadataJson,
+          id,
+          created_at: now,
+          updated_at: now,
+        },
+      },
+      201,
+    );
   });
 
   // POST /api/config/reload

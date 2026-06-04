@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useApi } from "../composables/useApi";
 import { useToast } from "../composables/useToast";
@@ -13,13 +13,24 @@ interface AuthDisplay {
   provider_name: string;
   key: string;
   name?: string;
+  auth_type: "api_key" | "oauth";
+  oauth_metadata?: string;
   status?: "healthy" | "warning" | "rate_limited";
-  limits?: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }>;
 }
 
 interface ProviderOption {
   id: string;
   name: string;
+}
+
+interface ParsedSession {
+  accessToken: string;
+  sessionToken?: string;
+  email?: string;
+  planType?: string;
+  userName?: string;
+  userId?: string;
+  expiresAt?: string;
 }
 
 const api = useApi();
@@ -29,9 +40,91 @@ const { t } = useI18n();
 const authsList = ref<AuthDisplay[]>([]);
 const providers = ref<ProviderOption[]>([]);
 const showAddModal = ref(false);
+const activeTab = ref<"api_key" | "oauth">("api_key");
+
+// API Key form
 const formProviderId = ref("");
 const formKey = ref("");
 const formName = ref("");
+
+// ── OAuth import: single textarea ──
+const oauthProviderId = ref("");
+const oauthSessionJson = ref("");
+const parsedInfo = ref<ParsedSession | null>(null);
+const copied = ref(false);
+
+function copyUrl() {
+  navigator.clipboard.writeText("https://chatgpt.com/api/auth/session").then(() => {
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 2000);
+  }).catch(() => {
+    // fallback: select the code element manually
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 2000);
+  });
+}
+
+function parseSessionJson(raw: string): void {
+  parsedInfo.value = null;
+  if (!raw.trim()) return;
+  try {
+    const data = JSON.parse(raw.trim());
+    // ChatGPT session JSON: { user: {id, name, email}, expires, accessToken, sessionToken, account: {planType} }
+    const accessToken = data.accessToken ?? data.access_token ?? "";
+    if (!accessToken) {
+      toast.error("JSON 中未找到 accessToken");
+      return;
+    }
+    const sessionToken = data.sessionToken ?? data.refresh_token;
+    const user = data.user ?? {};
+    const account = data.account ?? {};
+    const expires = data.expires ?? data.expires_at;
+
+    // Parse JWT accessToken for plan type if not in top-level
+    let planType = account.planType ?? account.plan_type ?? "";
+    if (!planType && accessToken.includes(".")) {
+      try {
+        const parts = accessToken.split(".");
+        const jwt = JSON.parse(atob(parts[1]));
+        const codexAuth = jwt["https://api.openai.com/auth"];
+        if (codexAuth?.chatgpt_plan_type) {
+          planType = codexAuth.chatgpt_plan_type;
+        }
+      } catch { /* ignore JWT parse errors */ }
+    }
+
+    parsedInfo.value = {
+      accessToken,
+      sessionToken,
+      email: user.email ?? "",
+      planType,
+      userName: user.name ?? user.id ?? "",
+      userId: user.id ?? "",
+      expiresAt: expires ?? "",
+    };
+    toast.success(t("auths.oauthParseSuccess"));
+  } catch {
+    toast.warning("JSON 格式错误，请粘贴有效的 Session JSON");
+  }
+}
+
+const oauthPreview = computed(() => {
+  const p = parsedInfo.value;
+  if (!p) return null;
+  const planLabel: Record<string, string> = {
+    free: "Free",
+    plus: "Plus",
+    pro: "Pro",
+    team: "Team",
+    enterprise: "Enterprise",
+  };
+  return {
+    email: p.email || "-",
+    plan: (planLabel[p.planType?.toLowerCase() ?? ""] ?? p.planType) || "-",
+    expires: p.expiresAt ? new Date(p.expiresAt).toLocaleString() : "-",
+    isFree: (p.planType?.toLowerCase() ?? "") === "free",
+  };
+});
 
 async function fetchProviders() {
   const res = await api.get<{ data: { id: string; name: string }[] }>("/api/providers");
@@ -42,14 +135,12 @@ async function fetchProviders() {
 }
 
 async function fetchAuths() {
-  // Load all providers and fetch auths for each
   const res = await api.get<{ data: { id: string; name: string }[] }>("/api/providers");
   if (!res.success) {
     toast.error(t("auths.getProvidersFailed"));
     return;
   }
 
-  // Also fetch dashboard stats for rate limit info
   const statsRes = await api.get<any>("/api/stats/dashboard");
   const rateLimitedAuths: string[] = [];
   if (statsRes.success) {
@@ -62,7 +153,9 @@ async function fetchAuths() {
   const list = res.data.data ?? (res.data as any);
   const items: AuthDisplay[] = [];
   for (const p of list) {
-    const authRes = await api.get<{ data: Array<{ key: string; name?: string }> }>(`/api/providers/${p.id}/auths`);
+    const authRes = await api.get<{
+      data: Array<{ key: string; name?: string; auth_type?: string; oauth_metadata?: string }>;
+    }>(`/api/providers/${p.id}/auths`);
     if (authRes.success) {
       const auths = authRes.data.data ?? (authRes.data as any);
       for (const a of auths) {
@@ -71,6 +164,8 @@ async function fetchAuths() {
           provider_name: p.name,
           key: a.key,
           name: a.name,
+          auth_type: a.auth_type ?? "api_key",
+          oauth_metadata: a.oauth_metadata,
           status: rateLimitedAuths.includes(a.key) ? "rate_limited" : "healthy",
         });
       }
@@ -91,6 +186,7 @@ async function addAuth() {
   const res = await api.post(`/api/providers/${formProviderId.value}/auths`, {
     key: formKey.value.trim(),
     name: formName.value.trim() || undefined,
+    auth_type: "api_key",
   });
   if (res.success) {
     toast.success(t("auths.addSuccess"));
@@ -102,6 +198,43 @@ async function addAuth() {
   } else {
     toast.error(res.error ?? t("auths.addFailed"));
   }
+}
+
+async function importOAuth() {
+  if (!oauthProviderId.value) {
+    toast.error(t("auths.providerRequired"));
+    return;
+  }
+  if (!parsedInfo.value) {
+    toast.error("请先粘贴 Session JSON 并等待解析完成");
+    return;
+  }
+
+  const res = await api.post("/api/oauth/import", {
+    provider_id: oauthProviderId.value,
+    access_token: parsedInfo.value.accessToken,
+    refresh_token: parsedInfo.value.sessionToken || undefined,
+    email: parsedInfo.value.email || undefined,
+    plan_type: parsedInfo.value.planType || undefined,
+    expires_at: parsedInfo.value.expiresAt || undefined,
+    name: parsedInfo.value.userName
+      ? `Codex (${parsedInfo.value.email || parsedInfo.value.userName})`
+      : "Codex OAuth",
+  });
+  if (res.success) {
+    toast.success(t("auths.oauthImportSuccess"));
+    showAddModal.value = false;
+    resetOAuthForm();
+    await fetchAuths();
+  } else {
+    toast.error(res.error ?? t("auths.oauthImportFailed"));
+  }
+}
+
+function resetOAuthForm() {
+  oauthProviderId.value = "";
+  oauthSessionJson.value = "";
+  parsedInfo.value = null;
 }
 
 async function deleteAuth(providerId: string, key: string) {
@@ -121,6 +254,7 @@ function maskKey(key: string): string {
 }
 
 function openAddModal() {
+  activeTab.value = "api_key";
   formProviderId.value = "";
   formKey.value = "";
   formName.value = "";
@@ -162,6 +296,7 @@ onMounted(() => {
           <tr>
             <th class="table-th-sticky">{{ $t("common.name") }}</th>
             <th class="table-th">{{ $t("auths.provider") }}</th>
+            <th class="table-th">{{ $t("auths.authType") }}</th>
             <th class="table-th">{{ $t("auths.apiKey") }}</th>
             <th class="table-th">{{ $t("common.status") }}</th>
             <th class="text-right px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">{{ $t("common.delete") }}</th>
@@ -175,6 +310,14 @@ onMounted(() => {
             <td class="table-td">
               <span class="text-gray-900 dark:text-gray-100 font-medium">{{ a.provider_name }}</span>
               <code class="text-xs text-gray-400 dark:text-gray-500 ml-1">({{ a.provider_id }})</code>
+            </td>
+            <td class="table-td">
+              <span v-if="a.auth_type === 'oauth'" class="badge-oauth font-mono text-xs">
+                {{ $t("auths.oauthLabel") }}
+              </span>
+              <span v-else class="badge-gray font-mono text-xs">
+                {{ $t("auths.apiKeyLabel") }}
+              </span>
             </td>
             <td class="table-td">
               <code class="badge-gray font-mono">{{ maskKey(a.key) }}</code>
@@ -202,8 +345,31 @@ onMounted(() => {
     </div>
 
     <!-- Add Auth Modal -->
-    <AppModal v-model:open="showAddModal" :title="$t('auths.addTitle')" width="max-w-md" data-testid="auth-add-modal">
-      <div class="space-y-4">
+    <AppModal v-model:open="showAddModal" :title="$t('auths.addTitle')" width="max-w-lg" data-testid="auth-add-modal">
+      <!-- Tabs -->
+      <div class="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+        <button
+          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+          :class="activeTab === 'api_key'
+            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
+          @click="activeTab = 'api_key'"
+        >
+          {{ $t("auths.addTabApiKey") }}
+        </button>
+        <button
+          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+          :class="activeTab === 'oauth'
+            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
+          @click="activeTab = 'oauth'"
+        >
+          {{ $t("auths.addTabOAuthImport") }}
+        </button>
+      </div>
+
+      <!-- API Key Tab -->
+      <div v-if="activeTab === 'api_key'" class="space-y-4">
         <div>
           <label class="form-label">{{ $t("auths.provider") }}</label>
           <select
@@ -247,6 +413,154 @@ onMounted(() => {
             class="btn-primary"
             data-testid="auth-save-btn"
             @click="addAuth"
+          >
+            {{ $t("common.save") }}
+          </button>
+        </div>
+      </div>
+
+      <!-- OAuth Import Tab -->
+      <div v-else class="space-y-4">
+        <!-- Step 1: 选择供应商 -->
+        <div>
+          <label class="form-label">{{ $t("auths.provider") }}</label>
+          <select
+            v-model="oauthProviderId"
+            class="select"
+          >
+            <option value="">{{ $t("auths.selectProvider") }}</option>
+            <option v-for="p in providers" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
+          </select>
+        </div>
+
+        <!-- 分步引导 -->
+        <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+          <div class="text-sm font-semibold text-indigo-800 dark:text-indigo-200 mb-2 flex items-center gap-1.5">
+            <span class="i-tabler-brand-openai text-base" />
+            Codex OAuth 导入步骤
+          </div>
+          <div class="space-y-2.5 text-sm text-indigo-700 dark:text-indigo-300">
+            <!-- Step 1 -->
+            <div class="flex gap-2.5">
+              <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">1</span>
+              <div>
+                <span class="font-medium">登录 ChatGPT</span>
+                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">在浏览器中访问 chatgpt.com 并登录你的账号</p>
+              </div>
+            </div>
+            <!-- Step 2 -->
+            <div class="flex gap-2.5">
+              <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">2</span>
+              <div class="min-w-0">
+                <span class="font-medium">打开 Session 页面</span>
+                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">新标签页访问以下地址：</p>
+                <div class="mt-1 flex items-center gap-2">
+                  <code class="block bg-indigo-100 dark:bg-indigo-800/60 px-2 py-1 rounded text-xs font-mono break-all select-all">https://chatgpt.com/api/auth/session</code>
+                  <button
+                    class="flex-shrink-0 px-2 py-1 rounded text-xs font-medium bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-300 dark:hover:bg-indigo-600 transition-colors"
+                    @click="copyUrl"
+                  >
+                    {{ copied ? '已复制' : '复制' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- Step 3 -->
+            <div class="flex gap-2.5">
+              <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">3</span>
+              <div>
+                <span class="font-medium">复制返回的 JSON</span>
+                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">浏览器会显示一段 JSON 文本，全选（Cmd+A）并复制（Cmd+C）</p>
+              </div>
+            </div>
+            <!-- Step 4 -->
+            <div class="flex gap-2.5">
+              <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">4</span>
+              <div>
+                <span class="font-medium">粘贴到下方文本框</span>
+                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">系统会自动解析并显示你的账号信息</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 示例 JSON（可折叠） -->
+          <details class="mt-3">
+            <summary class="text-xs text-indigo-500 dark:text-indigo-400 cursor-pointer hover:text-indigo-700 dark:hover:text-indigo-200 select-none">
+              查看返回结果示例
+            </summary>
+            <pre class="mt-2 bg-indigo-100/50 dark:bg-indigo-900/40 p-2.5 rounded text-xs font-mono text-indigo-600 dark:text-indigo-300 overflow-x-auto leading-relaxed">{
+  "user": {
+    "id": "user-CZbXq3wrnuMaVYjzd4qYgUY4",
+    "name": "Harvey Woo",
+    "email": "greedisgood5000@gmail.com"
+  },
+  "expires": "2026-09-02T08:49:20.840Z",
+  "accessToken": "eyJhbGciOiJSUzI1NiIs...",
+  "sessionToken": "eyJhbGciOiJkaXIiLCJlbmMi...",
+  "account": {
+    "planType": "free",
+    "structure": "personal"
+  }
+}</pre>
+          </details>
+        </div>
+
+        <!-- Session JSON 粘贴框 -->
+        <div>
+          <label class="form-label flex items-center gap-1.5">
+            Session JSON
+            <span v-if="parsedInfo" class="text-green-600 dark:text-green-400 text-xs font-normal flex items-center gap-0.5">
+              <span class="i-tabler-circle-check text-xs" /> 解析成功
+            </span>
+          </label>
+          <textarea
+            v-model="oauthSessionJson"
+            class="input font-mono text-xs h-36 resize-y"
+            :class="parsedInfo ? 'border-green-300 dark:border-green-700 focus:border-green-500' : ''"
+            placeholder='访问 https://chatgpt.com/api/auth/session 后，将浏览器显示的完整 JSON 粘贴到这里……'
+            @input="parseSessionJson(oauthSessionJson)"
+          />
+        </div>
+
+        <!-- 解析结果预览 -->
+        <div v-if="oauthPreview" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-sm">
+          <div class="font-medium text-green-800 dark:text-green-200 mb-2 flex items-center gap-1.5">
+            <span class="i-tabler-user-check text-base" />
+            已识别账号信息
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-green-700 dark:text-green-300">
+            <div>
+              <span class="text-green-500 dark:text-green-400 text-xs">邮箱</span>
+              <div class="font-mono text-xs truncate">{{ oauthPreview.email }}</div>
+            </div>
+            <div>
+              <span class="text-green-500 dark:text-green-400 text-xs">套餐</span>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span
+                  class="inline-block w-1.5 h-1.5 rounded-full"
+                  :class="oauthPreview.isFree ? 'bg-gray-400' : 'bg-green-500'"
+                />
+                <span class="font-medium">{{ oauthPreview.plan }}</span>
+              </div>
+            </div>
+            <div class="col-span-2">
+              <span class="text-green-500 dark:text-green-400 text-xs">Token 过期时间</span>
+              <div class="font-mono text-xs">{{ oauthPreview.expires }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+          <button
+            class="btn-secondary"
+            @click="showAddModal = false"
+          >
+            {{ $t("common.cancel") }}
+          </button>
+          <button
+            class="btn-primary"
+            :disabled="!parsedInfo"
+            @click="importOAuth"
           >
             {{ $t("common.save") }}
           </button>

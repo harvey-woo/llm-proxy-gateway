@@ -71,6 +71,7 @@ export {
   type AuthWithMeta,
   AuthKeyValidationSchema,
   type AuthKeyValidation,
+  type OAuthMetadata,
 } from "./auths.js";
 
 // Rate/Currency schemas

@@ -85,6 +85,7 @@ export default defineConfig({
     "badge-gray": "badge bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
     "badge-blue": "badge bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
     "badge-yellow": "badge bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300",
+    "badge-oauth": "badge bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300",
 
     // ============================
     //  Labels
