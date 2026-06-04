@@ -73,8 +73,17 @@ function getPaths(mode: RuntimeMode) {
     case "production": {
       const resources = join(import.meta.dirname, "..", "..");
       const appSupport = join(process.env.HOME || homedir(), "Library", "Application Support", "LLM Proxy Gateway");
+      const userConfigDir = join(appSupport, "config");
+      // Seed default config from bundle if user config doesn't exist yet
+      const userConfigPath = join(userConfigDir, "config.yaml");
+      const bundleConfigPath = join(resources, "config", "config.yaml");
+      if (!existsSync(userConfigPath) && existsSync(bundleConfigPath)) {
+        ensureWritableDir(userConfigDir);
+        writeFileSync(userConfigPath, readFileSync(bundleConfigPath, "utf-8"));
+        console.log(`[GW] Seeded initial config to: ${userConfigPath}`);
+      }
       return {
-        configDir: join(resources, "config"),
+        configDir: userConfigDir,
         dbPath: resolveDbPath(join(appSupport, "data", "gateway.db"), "prod"),
         frontendDist: join(resources, "frontend"),
       };
@@ -154,7 +163,7 @@ async function main() {
 
   // ── System tray ──
   const trayIcon = mode === "production"
-    ? join(paths.configDir, "..", "tray-icon.png")
+    ? join(paths.frontendDist, "tray-icon.png")
     : join(findWorkspaceRoot(), "packages", "frontend", "public", "tray-icon.png");
   console.log(`[GW] Tray icon: ${trayIcon} exists=${existsSync(trayIcon)}`);
   // Use zero-width space to avoid taking space, but prevent width calculation bug in Electrobun
