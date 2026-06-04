@@ -113,10 +113,11 @@ export function loadConfig(configDir?: string): LoadedConfig {
 }
 
 /**
- * Write in-memory providers back to config.yaml, preserving other keys.
+ * Write in-memory providers and model aliases back to config.yaml.
  */
 export function saveProvidersToConfig(
   providers: Map<string, { id: string; [key: string]: unknown }>,
+  modelAliases?: Map<string, { alias: string; [key: string]: unknown }>,
 ): void {
   const dir = getConfigDir();
   const filePath = join(dir, "config.yaml");
@@ -127,6 +128,14 @@ export function saveProvidersToConfig(
     providerObj[id] = rest;
   }
   raw.providers = providerObj;
+  if (modelAliases) {
+    const aliasObj: Record<string, unknown> = {};
+    for (const [alias, m] of modelAliases.entries()) {
+      const { alias: _, ...rest } = m;
+      aliasObj[alias] = rest;
+    }
+    raw.model_aliases = aliasObj;
+  }
   writeFileSync(filePath, stringify(raw, null, 2));
 }
 

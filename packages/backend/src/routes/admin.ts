@@ -107,6 +107,7 @@ export function createAdminRoutes(
     };
 
     storeRef.current.models.set(alias, newItem);
+    saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
 
     return c.json(
       {
@@ -154,6 +155,7 @@ export function createAdminRoutes(
       storeRef.current.models.delete(id);
     }
     storeRef.current.models.set(updated.alias, updated);
+    saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
 
     return c.json({
       success: true,
@@ -173,6 +175,7 @@ export function createAdminRoutes(
       return c.json({ success: false, error: "Model alias not found", code: "NOT_FOUND" }, 404);
     }
     storeRef.current.models.delete(id);
+    saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
     return c.json({ success: true });
   });
 
@@ -245,7 +248,7 @@ export function createAdminRoutes(
 
     // Resolve model aliases if needed
     const models = (body.models as Array<Record<string, unknown>>) ?? [];
-    const resolvedModels = resolveModelAliases(models, storeRef.current.models);
+    const resolvedModels = resolveModelAliases(models, storeRef.current.models, id);
 
     const now = new Date().toISOString();
     const auths = ((body.auths as Array<{ key: string; name?: string }>) ?? []).map((a) => ({
@@ -269,7 +272,7 @@ export function createAdminRoutes(
     };
 
     storeRef.current.providers.set(id, newItem);
-    saveProvidersToConfig(storeRef.current.providers);
+    saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
 
     return c.json(
       {
@@ -308,6 +311,7 @@ export function createAdminRoutes(
       models = resolveModelAliases(
         (body.models as Array<Record<string, unknown>>) ?? [],
         storeRef.current.models,
+        newId ?? id,
       );
     }
 
@@ -337,7 +341,7 @@ export function createAdminRoutes(
       storeRef.current.providers.delete(id);
     }
     storeRef.current.providers.set(updatedId, updated);
-    saveProvidersToConfig(storeRef.current.providers);
+    saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
 
     return c.json({
       success: true,
@@ -357,7 +361,7 @@ export function createAdminRoutes(
       return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
     }
     storeRef.current.providers.delete(id);
-    saveProvidersToConfig(storeRef.current.providers);
+    saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
     return c.json({ success: true });
   });
 
@@ -692,6 +696,7 @@ export function createAdminRoutes(
 function resolveModelAliases(
   models: Array<Record<string, unknown>>,
   modelsStore: Map<string, ModelAlias>,
+  providerId?: string,
 ): Array<{ name: string; enabled?: boolean; weight?: number; alias?: string }> {
   return models.map((m) => {
     const modelName = m.name as string;
@@ -705,13 +710,12 @@ function resolveModelAliases(
       );
       if (existingAlias) {
         result.alias = existingAlias.alias;
-      } else {
-        // Create a new alias with the model name
-        const now = new Date().toISOString();
+      } else if (providerId) {
+        // Create a new alias with the model name, linked to this provider
         const newAlias: ModelAlias = {
           alias: modelName,
           strategy: "proportional",
-          models: [],
+          models: [{ provider_id: providerId, model: modelName }],
           queue_timeout: 30000,
           enabled: true,
         };
