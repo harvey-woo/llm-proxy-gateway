@@ -19,6 +19,7 @@ export const StrategySchema = z.enum([
   "random",
   "round_robin",
   "least_loaded",
+  "health_first",
 ]);
 
 export type Strategy = z.infer<typeof StrategySchema>;
@@ -44,6 +45,7 @@ export const ModelAliasSchema = z.object({
   queue_timeout: z.number().int().min(0).default(30000),
   enabled: z.boolean().default(true),
   session_affinity: z.boolean().default(true),
+  failover: z.boolean().default(false),
   headers: z.record(z.string(), z.string()).optional(),
 });
 

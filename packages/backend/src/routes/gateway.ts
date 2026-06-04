@@ -172,70 +172,70 @@ async function handleProxyRequest(
   const { authEntry, realModel } = selection;
   const { auth, provider, providerId } = authEntry;
 
-  // Pin session for affinity on first selection
-  if (sessionId) {
-    pool.pinSession(sessionId, providerId, auth.key, realModel);
-  }
+  // ── Failover loop: retry with different auth on upstream error ──
+  const maxRetries = model.failover ? (provider.max_retries ?? 3) : 0;
+  let lastError: { status: number; body: unknown } | null = null;
+  let attempt = 0;
 
-  // Record the request in rate limiter
-  pool.getRateLimiter().recordRequest(auth.key, provider.rate_limits, estimatedTokens);
+  while (attempt <= maxRetries) {
+    const { auth, provider, providerId } = selection.authEntry;
+    // Pin session for affinity on first selection (and re-pin on failover retry)
+    if (sessionId) {
+      pool.pinSession(sessionId, providerId, auth.key, selection.realModel);
+    }
 
-  // Determine target format from provider config
-  const targetFormat = selection.authEntry.provider.api_format ?? sourceFormat;
+    // Record the request in rate limiter
+    pool.getRateLimiter().recordRequest(auth.key, provider.rate_limits, estimatedTokens);
 
-  // Transform request if needed
-  const transformResult = transformRequest(
-    sourceFormat,
-    targetFormat,
-    body,
-    provider.headers ?? {},
-  );
+    // Determine target format from provider config
+    const targetFormat = selection.authEntry.provider.api_format ?? sourceFormat;
 
-  // Override model name with real upstream model
-  const upstreamBody = transformResult.transformedBody as Record<string, unknown>;
-  upstreamBody.model = realModel;
-  if (typeof upstreamBody.max_tokens === "number") {
-    // Keep max_tokens as-is or adjust per provider
-  }
+    // Transform request if needed
+    const transformResult = transformRequest(
+      sourceFormat,
+      targetFormat,
+      body,
+      provider.headers ?? {},
+    );
 
-  // When formats differ and original was streaming, force stream=false upstream
-  // so we can transform the complete response and re-stream it in client format
-  if (wasStreaming && sourceFormat !== targetFormat) {
-    upstreamBody.stream = false;
-  }
+    // Override model name with real upstream model
+    const upstreamBody = transformResult.transformedBody as Record<string, unknown>;
+    upstreamBody.model = selection.realModel;
 
-  // Add auth header and protocol headers based on API format
-  const requestHeaders: Record<string, string> = {
-    ...transformResult.headers,
-    "Content-Type": "application/json",
-  };
+    // When formats differ and original was streaming, force stream=false upstream
+    // so we can transform the complete response and re-stream it in client format
+    if (wasStreaming && sourceFormat !== targetFormat) {
+      upstreamBody.stream = false;
+    }
 
-  // Forward client-controlled headers
-  for (const h of ["user-agent", "accept", "accept-encoding"]) {
-    const val = c.req.header(h);
-    if (val) requestHeaders[h] = val;
-  }
+    // Add auth header and protocol headers based on API format
+    const requestHeaders: Record<string, string> = {
+      ...transformResult.headers,
+      "Content-Type": "application/json",
+    };
 
-  // Apply alias-level headers last (highest priority)
-  // Can override client headers like user-agent for bypass scenarios
-  if (model.headers) {
-    Object.assign(requestHeaders, model.headers);
-  }
+    // Forward client-controlled headers
+    for (const h of ["user-agent", "accept", "accept-encoding"]) {
+      const val = c.req.header(h);
+      if (val) requestHeaders[h] = val;
+    }
 
-  if (targetFormat === "anthropic_messages") {
-    // Anthropic Messages API
-    requestHeaders["x-api-key"] = auth.key;
-    // Override with our protocol version (client may not set it)
-    requestHeaders["anthropic-version"] = "2023-06-01";
-  } else {
-    // OpenAI-compatible APIs
-    requestHeaders["Authorization"] = `Bearer ${auth.key}`;
-  }
+    // Apply alias-level headers last (highest priority)
+    if (model.headers) {
+      Object.assign(requestHeaders, model.headers);
+    }
 
-  try {
-    // Determine upstream path based on target format (not client path)
-    const upstreamPath = formatToPath(targetFormat);
-    const upstreamUrl = `${provider.base_url}${upstreamPath}`;
+    if (targetFormat === "anthropic_messages") {
+      requestHeaders["x-api-key"] = auth.key;
+      requestHeaders["anthropic-version"] = "2023-06-01";
+    } else {
+      requestHeaders["Authorization"] = `Bearer ${auth.key}`;
+    }
+
+    try {
+      // Determine upstream path based on target format (not client path)
+      const upstreamPath = formatToPath(targetFormat);
+      const upstreamUrl = `${provider.base_url}${upstreamPath}`;
     const upstreamResponse = await fetch(upstreamUrl, {
       method: "POST",
       headers: requestHeaders,
@@ -278,26 +278,34 @@ async function handleProxyRequest(
     // Release concurrency
     pool.getRateLimiter().releaseConcurrency(auth.key, provider.rate_limits);
 
-    // If upstream returned an error, pass it through directly without transformation
+    // If upstream returned an error — try failover or pass through
     if (!upstreamResponse.ok) {
-      await logRequest({
-        authKey: auth.key,
-        providerId,
-        modelAlias,
-        realModel,
-        format: sourceFormat,
-        status: "error",
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheHitTokens: 0,
-        cacheCreateTokens: 0,
-        latencyMs,
-        errorMessage: JSON.stringify(responseData),
-      });
-      return c.json(responseData, upstreamResponse.status);
+      // Record failure for health tracking
+      pool.recordFailure(auth.key);
+
+      // Failover: retry with a different auth (non-streaming only)
+      if (attempt < maxRetries) {
+        // Unpin stale session
+        if (sessionId) {
+          pool.pinSession(sessionId, providerId, auth.key, selection.realModel);
+        }
+        // Try the next available auth, excluding the failed one
+        const retrySelection = pool.selectAuth(modelAlias, estimatedTokens, sessionId, auth.key);
+        if (retrySelection) {
+          attempt++;
+          selection = retrySelection;
+          console.log(`[gateway] failover: retry attempt ${attempt}/${maxRetries} with provider ${retrySelection.authEntry.providerId}`);
+          continue; // ⮌ retry with the new auth from loop top
+        }
+      }
+
+      // No more retries — save last error and fall through to final error response
+      lastError = { status: upstreamResponse.status, body: responseData };
+      break;
     }
 
-    // Guard: if responseData is null/undefined, return an error
+    // Record success for health tracking
+    pool.recordSuccess(auth.key);
     if (!responseData) {
       throw new Error("Empty response from upstream");
     }
@@ -412,12 +420,29 @@ async function handleProxyRequest(
     // Release concurrency
     pool.getRateLimiter().releaseConcurrency(auth.key, provider.rate_limits);
 
-    // Log the error
+    // Record failure for health tracking
+    pool.recordFailure(auth.key);
+
+    // Failover: retry with a different auth on network/parse error
+    if (attempt < maxRetries) {
+      if (sessionId) {
+        pool.pinSession(sessionId, providerId, auth.key, selection.realModel);
+      }
+      const retrySelection = pool.selectAuth(modelAlias, estimatedTokens, sessionId, auth.key);
+      if (retrySelection) {
+        attempt++;
+        selection = retrySelection;
+        console.log(`[gateway] failover: retry attempt ${attempt}/${maxRetries} after network error`);
+        continue;
+      }
+    }
+
+    // No more retries — log and return error
     await logRequest({
       authKey: auth.key,
       providerId,
       modelAlias,
-      realModel,
+      realModel: selection.realModel,
       format: sourceFormat,
       status: "error",
       inputTokens: 0,
@@ -440,7 +465,33 @@ async function handleProxyRequest(
       502,
     );
   }
-}
+
+  // ── End of while loop — both success paths (return) and exhaustion paths (break) land here ──
+  } // end while
+
+  // If we break out of the loop with lastError, respond with the last upstream error
+  if (lastError) {
+    const { status, body } = lastError;
+    await logRequest({
+      authKey: "unknown",
+      providerId: "unknown",
+      modelAlias,
+      realModel: "unknown",
+      format: sourceFormat,
+      status: "error",
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheHitTokens: 0,
+      cacheCreateTokens: 0,
+      latencyMs: Date.now() - startTime,
+      errorMessage: JSON.stringify(body),
+    });
+    return c.json(body, status);
+  }
+
+  // Should never reach here
+  return c.json({ error: { message: "Unexpected error in proxy request", code: "unexpected" } }, 500);
+} // end handleProxyRequest
 
 /**
  * Map API format to the upstream URL path.

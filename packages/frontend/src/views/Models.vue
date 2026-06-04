@@ -64,6 +64,7 @@ const strategyOptions = [
   { value: "round_robin", label: t('models.strategyRoundRobinLabel') },
   { value: "random", label: t('models.strategyRandomLabel') },
   { value: "least_loaded", label: t('models.strategyLeastLoadedLabel') },
+  { value: "health_first", label: t('models.strategyHealthFirstLabel') },
 ];
 
 const strategyDescriptions: Record<string, string> = {
@@ -72,6 +73,7 @@ const strategyDescriptions: Record<string, string> = {
   round_robin: t('models.strategyRoundRobin'),
   random: t('models.strategyRandom'),
   least_loaded: t('models.strategyLeastLoaded'),
+  health_first: t('models.strategyHealthFirst'),
 };
 
 const selectedStrategyDesc = computed(() => strategyDescriptions[formStrategy.value] || "");
@@ -82,6 +84,7 @@ const formStrategy = ref("proportional");
 const formQueueTimeout = ref(30000);
 const formEnabled = ref(true);
 const formSessionAffinity = ref(true);
+const formFailover = ref(false);
 const formDescription = ref("");
 const formHeaders = ref("{}");
 
@@ -178,6 +181,7 @@ function resetForm() {
   formQueueTimeout.value = 30000;
   formEnabled.value = true;
   formSessionAffinity.value = true;
+  formFailover.value = false;
   formDescription.value = "";
   formHeaders.value = "{}";
   providerSelections.value = [];
@@ -195,6 +199,7 @@ function openEdit(m: ModelAlias) {
   formQueueTimeout.value = m.queue_timeout;
   formEnabled.value = m.enabled;
   formSessionAffinity.value = m.session_affinity;
+  formFailover.value = (m as any).failover ?? false;
   formDescription.value = m.description ?? "";
   formHeaders.value = JSON.stringify(m.headers ?? {}, null, 2);
   loadModelsIntoSelections(m.models);
@@ -233,6 +238,7 @@ async function handleCreate() {
     models: entries,
     enabled: formEnabled.value,
     session_affinity: formSessionAffinity.value,
+    failover: formFailover.value,
     description: formDescription.value.trim() || undefined,
   };
   // Parse headers from JSON string
@@ -265,6 +271,7 @@ async function handleUpdate() {
   body.models = buildModelEntries();
   body.enabled = formEnabled.value;
   body.session_affinity = formSessionAffinity.value;
+  body.failover = formFailover.value;
   body.description = formDescription.value.trim() || undefined;
 
   // Parse headers from JSON string
@@ -419,12 +426,17 @@ onMounted(async () => {
             <p class="text-xs text-gray-400 dark:text-gray-500">{{ $t('models.sessionAffinityDesc') }}</p>
           </div>
         </div>
+        <div class="flex items-start gap-2">
+          <input v-model="formFailover" type="checkbox" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-testid="model-failover-checkbox" />
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('models.failover') }}</label>
+            <p class="text-xs text-gray-400 dark:text-gray-500">{{ $t('models.failoverDesc') }}</p>
+          </div>
+        </div>
 
         <!-- Associated Models Section -->
         <div>
           <label class="form-label mb-2">{{ $t('models.associatedModels') }}</label>
-
-          <!-- Provider selector (only show if there are available providers) -->
           <div v-if="availableProviders.length > 0" class="flex items-center gap-2 mb-3">
             <select v-model="selectedProviderToAdd" class="select" @change="addProviderSelection(selectedProviderToAdd); selectedProviderToAdd = ''">
               <option value="" disabled>{{ $t('models.selectProvider') }}</option>
@@ -516,6 +528,13 @@ onMounted(async () => {
           <div>
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('models.sessionAffinity') }}</label>
             <p class="text-xs text-gray-400 dark:text-gray-500">{{ $t('models.sessionAffinityDesc') }}</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-2">
+          <input v-model="formFailover" type="checkbox" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-testid="edit-model-failover-checkbox" />
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('models.failover') }}</label>
+            <p class="text-xs text-gray-400 dark:text-gray-500">{{ $t('models.failoverDesc') }}</p>
           </div>
         </div>
 

@@ -12,6 +12,12 @@ export interface PoolSelection {
   realModel: string;
 }
 
+export interface HealthStats {
+  successCount: number;
+  failureCount: number;
+  lastFailureAt: number | null;
+}
+
 export interface QueueEntry {
   resolve: (selection: PoolSelection | null) => void;
   reject: (error: Error) => void;
@@ -28,6 +34,7 @@ export class ProviderPool {
   private queue: QueueEntry[];
   private rrCounters: Map<string, number>;
   private sessionAffinity: Map<string, { providerId: string; authKey: string; realModel: string }>;
+  private healthStats: Map<string, HealthStats>;
 
   constructor(
     models: Map<string, ModelAlias>,
@@ -42,6 +49,7 @@ export class ProviderPool {
     this.queue = [];
     this.rrCounters = new Map();
     this.sessionAffinity = new Map();
+    this.healthStats = new Map();
   }
 
   setConfig(
@@ -102,12 +110,14 @@ export class ProviderPool {
 
   /**
    * Select an auth entry based on the model's strategy.
+   * @param excludeAuthKey - optional auth key to exclude (for failover retry)
    * Returns null if no auth is available.
    */
   selectAuth(
     modelAlias: string,
     estimatedTokens: number = 0,
     sessionId?: string,
+    excludeAuthKey?: string,
   ): PoolSelection | null {
     const model = this.models.get(modelAlias);
     if (!model) return null;
@@ -136,10 +146,11 @@ export class ProviderPool {
     const available = this.getAvailableAuths(modelAlias);
     if (available.length === 0) return null;
 
-    // Filter by rate limit availability
-    const availableAuths = available.filter((entry) =>
-      this.isAuthAvailable(entry, estimatedTokens).allowed,
-    );
+    // Filter by rate limit availability and optional exclusion
+    const availableAuths = available.filter((entry) => {
+      if (excludeAuthKey && entry.auth.key === excludeAuthKey) return false;
+      return this.isAuthAvailable(entry, estimatedTokens).allowed;
+    });
 
     if (availableAuths.length === 0) return null;
 
@@ -160,6 +171,9 @@ export class ProviderPool {
         break;
       case "least_loaded":
         selected = this.selectLeastLoaded(availableAuths);
+        break;
+      case "health_first":
+        selected = this.selectHealthFirst(availableAuths);
         break;
       default:
         selected = availableAuths[0];
@@ -241,6 +255,58 @@ export class ProviderPool {
     }
 
     return selected;
+  }
+
+  /**
+   * Health-first selection: pick the auth with the highest success rate.
+   * Success rate = successes / (successes + failures) over a sliding window.
+   * Auths with no data default to 100% (neutral).
+   * When scores are equal, falls back to proportional logic.
+   */
+  private selectHealthFirst(auths: AuthEntry[]): AuthEntry {
+    let bestScore = -1;
+    let selected = auths[0];
+
+    for (const entry of auths) {
+      const stats = this.healthStats.get(entry.auth.key);
+      let score: number;
+      if (!stats || (stats.successCount === 0 && stats.failureCount === 0)) {
+        score = 1.0; // No data yet — neutral
+      } else {
+        const total = stats.successCount + stats.failureCount;
+        score = stats.successCount / total;
+        // Apply recency penalty: if last failure was recent, reduce score
+        if (stats.lastFailureAt && Date.now() - stats.lastFailureAt < 60_000) {
+          score *= 0.5;
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        selected = entry;
+      }
+    }
+
+    return selected;
+  }
+
+  /**
+   * Record a successful upstream request for health tracking.
+   */
+  recordSuccess(authKey: string): void {
+    const stats = this.healthStats.get(authKey) ?? { successCount: 0, failureCount: 0, lastFailureAt: null };
+    stats.successCount++;
+    this.healthStats.set(authKey, stats);
+  }
+
+  /**
+   * Record an upstream failure for health tracking.
+   */
+  recordFailure(authKey: string): void {
+    const stats = this.healthStats.get(authKey) ?? { successCount: 0, failureCount: 0, lastFailureAt: null };
+    stats.failureCount++;
+    stats.lastFailureAt = Date.now();
+    this.healthStats.set(authKey, stats);
   }
 
   /**
