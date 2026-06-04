@@ -36,6 +36,7 @@ jobs:
           cat > config/config.yaml << 'CONFIG_EOF'
           providers: {}
           model_aliases: {}
+          template_url: "https://raw.githubusercontent.com/${{ github.repository }}/main/config/templates.json"
           CONFIG_EOF
 
       - name: Lint
@@ -74,6 +75,7 @@ jobs:
           cat > config/config.yaml << 'CONFIG_EOF'
           providers: {}
           model_aliases: {}
+          template_url: "https://raw.githubusercontent.com/${{ github.repository }}/main/config/templates.json"
           CONFIG_EOF
 
       - name: Install Bun
