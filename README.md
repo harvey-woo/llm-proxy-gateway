@@ -115,16 +115,19 @@ flowchart TD
         G --> H3[round_robin<br/>轮流分配]
         G --> H4[random<br/>随机选择]
         G --> H5[least_loaded<br/>选并发最低]
-        H1 & H2 & H3 & H4 & H5 --> I[绑定会话 → provider/auth]
+        G --> H6[health_first<br/>选历史成功率最高]
+        H1 & H2 & H3 & H4 & H5 & H6 --> I[绑定会话 → provider/auth]
     end
 
     subgraph Proxy [代理请求 / Proxy Request]
         J[转换请求格式<br/>Transform] --> K[发送上游请求<br/>fetch Upstream]
         K -->|成功| L[转换响应格式<br/>记录统计<br/>返回客户端]
-        K -->|失败| M{failover 启用?}
-        M -->|是| N[选下一个可用 auth<br/>解除旧绑定<br/>绑定新 auth]
-        N --> J
-        M -->|否| O[直接返回错误<br/>透传上游错误信息]
+        K -->|失败| N{流式请求?}
+        N -->|是| O[直接返回错误]
+        N -->|否| P{启用了 failover?}
+        P -->|是| Q[排除失败的 auth<br/>选下一个可用 auth<br/>解除旧绑定 → 绑定新 auth]
+        Q --> J
+        P -->|否| O
     end
 
     subgraph Queue [排队 / Queue]
@@ -151,11 +154,12 @@ flowchart TD
 | **round_robin** | Distribute requests sequentially | Even request distribution |
 | **random** | Pick randomly | Simple load spreading |
 | **least_loaded** | Pick auth with lowest current concurrency | Long-running / streaming requests |
+| **health_first** | Pick auth with highest historical success rate | Error-sensitive workloads |
 
 ### Session Affinity + Failover
 
 - **Session Affinity**: Requests from the same session (e.g. Claude Code session) are pinned to the same provider/auth, preventing context fragmentation across providers
-- **Failover**: When an upstream request fails, the gateway automatically retries with the next available auth (non-streaming only). On retry success, the session is re-pinned to the new provider
+- **Failover** (per-alias setting): When an upstream request fails, the gateway automatically retries with the next available auth. On retry success, the session is re-pinned to the new provider. **Streaming requests are not retried** since the stream may have already sent partial data.
 
 ## Tech Stack
 

@@ -114,16 +114,19 @@ flowchart TD
         G --> H3[round_robin<br/>轮流分配]
         G --> H4[random<br/>随机选择]
         G --> H5[least_loaded<br/>选并发最低]
-        H1 & H2 & H3 & H4 & H5 --> I[绑定会话 → provider/auth]
+        G --> H6[health_first<br/>选历史成功率最高]
+        H1 & H2 & H3 & H4 & H5 & H6 --> I[绑定会话 → provider/auth]
     end
 
     subgraph Proxy [代理请求]
         J[转换请求格式] --> K[发送上游请求]
         K -->|成功| L[转换响应格式<br/>记录统计<br/>返回客户端]
-        K -->|失败| M{failover 启用?}
-        M -->|是| N[选下一个可用 auth<br/>解除旧绑定<br/>绑定新 auth]
-        N --> J
-        M -->|否| O[直接返回错误<br/>透传上游错误信息]
+        K -->|失败| N{流式请求?}
+        N -->|是| O[直接返回错误]
+        N -->|否| P{启用了 failover?}
+        P -->|是| Q[排除失败的 auth<br/>选下一个可用 auth<br/>解除旧绑定 → 绑定新 auth]
+        Q --> J
+        P -->|否| O
     end
 
     subgraph Queue [排队]
@@ -150,11 +153,12 @@ flowchart TD
 | **round_robin** | 按顺序轮流分配 | 请求均匀分布 |
 | **random** | 随机选取 | 简单负载分散 |
 | **least_loaded** | 选当前并发数最低的 | 长耗时/流式请求 |
+| **health_first** | 选历史成功率最高的 | 对错误敏感的业务 |
 
 ### 会话亲和性 + 错误转移
 
 - **会话亲和性**：同一会话（如 Claude Code 会话）的请求固定到同一个 provider/auth，避免对话上下文分散
-- **错误转移**：上游请求失败时自动选择下一个可用 auth 重试（非流式请求），重试成功后重新绑定会话
+- **错误转移**（模型别名级别设置）：上游请求失败时自动选择下一个可用 auth 重试（**非流式请求**），重试成功后重新绑定会话。流式请求不重试——流可能已发送部分数据。
 
 ## 技术栈
 
