@@ -5,7 +5,7 @@ import { ProviderPool } from "./pool.js";
 import type { Auth } from "@llm-proxy/shared/schemas";
 import type { Provider } from "@llm-proxy/shared/schemas";
 import { RateLimiter } from "./rate_limiter.js";
-import { loadConfig, watchConfigESM, type LoadedConfig } from "./config/loader.js";
+import { loadConfig, type LoadedConfig } from "./config/loader.js";
 import { initDb, closeDb, getDb } from "./db/database.js";
 import { createGatewayRoutes } from "./routes/gateway.js";
 import { createAdminRoutes, createStoreState, type StoreState } from "./routes/admin.js";
@@ -115,14 +115,10 @@ export async function createApp(opts?: {
     console.warn("[server] Failed to load auths from DB:", err);
   }
 
-  // Set up config hot reload — only updates pool/configRef, NOT storeRef.
-  // The admin API is the authoritative source for runtime data (providers, auths, aliases).
-  // storeRef is seeded at startup; all runtime mutations go through API handlers.
-  const watcher = watchConfigESM((newConfig) => {
-    console.log("[config] Configuration reloaded (pool updated, store unchanged)");
-    configRef.current = newConfig;
-    pool.setConfig(newConfig.models, newConfig.providers, extractAuths(newConfig.providers));
-  });
+  // Config hot-reload is intentionally absent in production.
+  // All mutations go through the admin API which directly updates storeRef.
+  // The watcher would race with API writes and reset storeRef from config.yaml,
+  // losing runtime state (provider auths, newly created providers, etc.).
 
   // Middleware
   app.use("*", logger());
@@ -209,7 +205,6 @@ export async function createApp(opts?: {
 
   // Cleanup function
   const stop = async () => {
-    watcher.stop();
     await closeDb();
   };
 
