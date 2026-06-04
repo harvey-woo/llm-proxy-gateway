@@ -276,6 +276,30 @@ export function createAdminRoutes(
     };
 
     storeRef.current.providers.set(id, newItem);
+
+    // Save auths to DB so they survive config reload
+    if (auths.length > 0) {
+      try {
+        const db = await getDb();
+        for (const a of auths) {
+          await db
+            .insertInto("provider_auths")
+            .values({
+              id: randomUUID(),
+              provider_id: id,
+              key: a.key,
+              name: a.name ?? null,
+              created_at: now,
+              updated_at: now,
+            })
+            .onConflict((oc) => oc.doNothing())
+            .execute();
+        }
+      } catch (err) {
+        console.warn(`[admin] Failed to save auths to DB for provider "${id}":`, err);
+      }
+    }
+
     saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
 
     return c.json(

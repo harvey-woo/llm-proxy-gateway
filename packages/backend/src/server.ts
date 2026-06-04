@@ -115,47 +115,13 @@ export async function createApp(opts?: {
     console.warn("[server] Failed to load auths from DB:", err);
   }
 
-  // Set up config hot reload
-  const watcher = watchConfigESM(async (newConfig) => {
-    console.log("[config] Configuration reloaded");
+  // Set up config hot reload — only updates pool/configRef, NOT storeRef.
+  // The admin API is the authoritative source for runtime data (providers, auths, aliases).
+  // storeRef is seeded at startup; all runtime mutations go through API handlers.
+  const watcher = watchConfigESM((newConfig) => {
+    console.log("[config] Configuration reloaded (pool updated, store unchanged)");
     configRef.current = newConfig;
-    // Restore auths from DB into reloaded providers (config.yaml doesn't store auths)
-    const providersWithAuths = new Map(newConfig.providers);
-    try {
-      const db = await getDb(opts?.dbPath);
-      const authRows = await db
-        .selectFrom("provider_auths")
-        .selectAll()
-        .execute();
-      for (const row of authRows) {
-        let provider = providersWithAuths.get(row.provider_id);
-        if (!provider) {
-          provider = {
-            id: row.provider_id,
-            name: row.name ?? row.provider_id,
-            base_url: "",
-            models: [],
-            auths: [],
-            rate_limits: [],
-            request_timeout_ms: 60000,
-            max_retries: 3,
-            enabled: true,
-            pricing_model: "per_request_weighted",
-            unit_price: 0.001,
-            currency: "USD",
-          };
-          providersWithAuths.set(row.provider_id, provider);
-        }
-        if (!provider.auths) provider.auths = [];
-        if (!provider.auths.find((a) => a.key === row.key)) {
-          provider.auths.push({ key: row.key, name: row.name ?? undefined });
-        }
-      }
-    } catch { /* DB not available */ }
-    pool.setConfig(newConfig.models, providersWithAuths, extractAuths(providersWithAuths));
-    // Also update admin store so API routes reflect changes immediately
-    storeRef.current.models = new Map(newConfig.models);
-    storeRef.current.providers = new Map(providersWithAuths);
+    pool.setConfig(newConfig.models, newConfig.providers, extractAuths(newConfig.providers));
   });
 
   // Middleware
