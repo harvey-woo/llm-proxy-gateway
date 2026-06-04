@@ -269,6 +269,10 @@ export function createAdminRoutes(
       pricing_model: (body.pricing_model as string) ?? "per_request_weighted",
       unit_price: (body.unit_price as number) ?? 0.001,
       currency: (body.currency as string) ?? "USD",
+      subscription: body.subscription as Record<string, unknown> | undefined,
+      api_format: (body.api_format as string) ?? "openai_chat",
+      headers: (body.headers as Record<string, string>) ?? {},
+      description: body.description as string | undefined,
     };
 
     storeRef.current.providers.set(id, newItem);

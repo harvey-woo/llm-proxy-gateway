@@ -261,43 +261,52 @@ async function fetchTemplates(refresh = false) {
 }
 
 function applyTemplate(tpl: { id: string; name: string; [key: string]: unknown }) {
-  templateDropdownOpen.value = false; resetForm();
-  formId.value = tpl.id as string; formName.value = (tpl.name as string) ?? "";
-  formBaseUrl.value = (tpl.base_url as string) ?? ""; formEnabled.value = (tpl.enabled as boolean) ?? true;
-  formDescription.value = (tpl.description as string) ?? "";
-  formApiFormat.value = (tpl.api_format as string) ?? "openai_chat";
-  formCurrency.value = (tpl.currency as string) ?? "USD";
-  formPricingModel.value = (tpl.pricing_model as string) ?? "no_billing";
+  templateDropdownOpen.value = false;
+  // Build provider body directly from template
+  const models: Record<string, unknown>[] = ((tpl.models as Record<string, unknown>[]) ?? []).map((m) => {
+    const entry: Record<string, unknown> = { name: m.name as string, enabled: true };
+    if (m.alias) entry.alias = m.alias as string;
+    if (m.weight && m.weight !== 1) entry.weight = m.weight;
+    if (m.input_price != null) entry.input_price = m.input_price;
+    if (m.output_price != null) entry.output_price = m.output_price;
+    if (m.cache_hit_price != null) entry.cache_hit_price = m.cache_hit_price;
+    if (m.cache_create_price != null) entry.cache_create_price = m.cache_create_price;
+    return entry;
+  });
+  const rateLimits: Record<string, unknown>[] = ((tpl.rate_limits as Record<string, unknown>[]) ?? []).map((rl) => {
+    const base: Record<string, unknown> = { type: rl.type, max: rl.max ?? 100 };
+    if (rl.period) base.period = rl.period;
+    return base;
+  });
+  const body: Record<string, unknown> = {
+    id: tpl.id as string,
+    name: (tpl.name as string) ?? "",
+    base_url: (tpl.base_url as string) ?? "",
+    models,
+    rate_limits: rateLimits,
+    enabled: (tpl.enabled as boolean) ?? true,
+    pricing_model: (tpl.pricing_model as string) ?? "no_billing",
+    unit_price: (tpl.unit_price as number) ?? 0.001,
+    currency: (tpl.currency as string) ?? "USD",
+    api_format: (tpl.api_format as string) ?? "openai_chat",
+    headers: (tpl.headers as Record<string, string>) ?? {},
+    description: (tpl.description as string) ?? "",
+  };
   const sub = tpl.subscription as Record<string, unknown> | undefined;
   if (sub) {
-    formSubscriptionPrice.value = (sub.price as number) ?? 0;
-    formSubscriptionPeriod.value = (sub.period as string) ?? "month";
-    formSubscriptionBillingType.value = (sub.billing_type as string) ?? "weighted_requests";
-    formSubscriptionUnlimited.value = (sub.billing_type as string) === "unlimited";
-    formSubscriptionIncludedRequests.value = (sub.included_requests as number) ?? 0;
-    formSubscriptionOveragePrice.value = (sub.overage_unit_price as number) ?? 0;
-    formSubscriptionAllowOverage.value = ((sub.overage_unit_price as number) ?? 0) > 0;
-    formSubscriptionIncludedTokens.value = (sub.included_tokens as number) ?? 0;
+    body.subscription = sub;
+    if ((sub.billing_type as string) === "unlimited") {
+      body.subscription = { ...sub, billing_type: "unlimited" };
+    }
   }
-  formUnitPrice.value = (tpl.unit_price as number) ?? 0.001;
-  const tplModels = tpl.models as Record<string, unknown>[] | undefined;
-  if (tplModels && tplModels.length > 0) {
-    formModels.value = tplModels.map((m) => ({
-      name: (m.name as string) ?? "", alias: (m.alias as string) ?? "",
-      weight: m.weight as number | undefined,
-      input_price: m.input_price as number | undefined,
-      output_price: m.output_price as number | undefined,
-      cache_hit_price: m.cache_hit_price as number | undefined,
-      cache_create_price: m.cache_create_price as number | undefined,
-    }));
-  } else {
-    formModels.value = [{ name: "", alias: "", weight: undefined, input_price: undefined, output_price: undefined, cache_hit_price: undefined, cache_create_price: undefined }];
-  }
-  const tplRateLimits = tpl.rate_limits as Record<string, unknown>[] | undefined;
-  formRateLimits.value = (tplRateLimits ?? []).map((rl) => ({ type: rl.type as string, max: (rl.max as number) ?? 100, period: rl.period as string | undefined })) as any;
-  const tplHeaders = tpl.headers as Record<string, unknown> | undefined;
-  formHeaders.value = tplHeaders ? JSON.stringify(tplHeaders, null, 2) : "{}";
-  showModal.value = true;
+  api.post("/api/providers", body).then((res) => {
+    if (res.success) {
+      toast.success(t("providers.createSuccess"));
+      fetchProviders();
+    } else {
+      toast.error(res.error ?? t("providers.createFailed"));
+    }
+  });
 }
 
 function handleClickOutside(e: MouseEvent) {
