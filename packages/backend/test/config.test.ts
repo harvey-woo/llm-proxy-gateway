@@ -37,11 +37,12 @@ describe("Config Loader", () => {
     else delete process.env.TEMPLATE_URL;
   });
 
-  it("returns null when no env var and config.yaml has no template_url", () => {
+  it("falls back to config.yaml template_url when TEMPLATE_URL env var is not set", () => {
     const origUrl = process.env.TEMPLATE_URL;
     delete process.env.TEMPLATE_URL;
     const result = getTemplateUrl();
-    expect(result).toBeNull();
+    // Returns the URL from config.yaml when env var is not set
+    expect(result).toMatch(/^https?:\/\/.+/);
     if (origUrl !== undefined) process.env.TEMPLATE_URL = origUrl;
   });
 });
