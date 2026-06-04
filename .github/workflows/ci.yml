@@ -123,7 +123,9 @@ jobs:
           if [ -f "../../packages/frontend/public/tray-icon.png" ]; then
             cp "../../packages/frontend/public/tray-icon.png" "$RESOURCES/tray-icon.png"
           fi
-          echo "Bundle done: $RESOURCES"
+          # Re-sign after modifying bundle contents
+          codesign --force --deep --sign - "$APP"
+          echo "Bundle done: $RESOURCES (re-signed)"
         shell: bash
 
       - name: Package artifact
