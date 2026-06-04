@@ -124,7 +124,7 @@ export function saveProvidersToConfig(
   const raw = loadYamlFile<Record<string, unknown>>(filePath);
   const providerObj: Record<string, unknown> = {};
   for (const [id, p] of providers.entries()) {
-    const { id: _, ...rest } = p;
+    const { id: _, auths: _a, ...rest } = p;
     providerObj[id] = rest;
   }
   raw.providers = providerObj;

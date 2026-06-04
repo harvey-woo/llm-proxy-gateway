@@ -82,15 +82,31 @@ export async function createApp(opts?: {
       .selectAll()
       .execute();
     for (const row of authRows) {
-      const provider = storeRef.current.providers.get(row.provider_id);
-      if (provider) {
-        if (!provider.auths) {
-          provider.auths = [];
-        }
-        const existingIndex = provider.auths.findIndex((a) => a.key === row.key);
-        if (existingIndex === -1) {
-          provider.auths.push({ key: row.key, name: row.name ?? undefined });
-        }
+      let provider = storeRef.current.providers.get(row.provider_id);
+      if (!provider) {
+        // Provider not in config.yaml yet — create a minimal in-memory entry
+        provider = {
+          id: row.provider_id,
+          name: row.name ?? row.provider_id,
+          base_url: "",
+          models: [],
+          auths: [],
+          rate_limits: [],
+          request_timeout_ms: 60000,
+          max_retries: 3,
+          enabled: true,
+          pricing_model: "per_request_weighted",
+          unit_price: 0.001,
+          currency: "USD",
+        };
+        storeRef.current.providers.set(row.provider_id, provider);
+      }
+      if (!provider.auths) {
+        provider.auths = [];
+      }
+      const existingIndex = provider.auths.findIndex((a) => a.key === row.key);
+      if (existingIndex === -1) {
+        provider.auths.push({ key: row.key, name: row.name ?? undefined });
       }
     }
     // Update pool auths map after loading from DB (pool was created before DB load)
