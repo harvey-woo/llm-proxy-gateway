@@ -3,7 +3,7 @@
   "updated_at": "2026-06-03",
   "templates": [
     {
-      "id": "coding-plan",
+      "id": "bailian-coding-plan",
       "name": "百炼 Coding Plan",
       "base_url": "https://coding.dashscope.aliyuncs.com/v1",
       "api_format": "openai_chat",
