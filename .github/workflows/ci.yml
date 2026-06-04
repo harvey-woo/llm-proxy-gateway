@@ -47,9 +47,9 @@ jobs:
       - name: Build frontend
         run: yarn workspace @llm-proxy/frontend exec -- vite build
 
-  # ── Build desktop client (every push to main; release on tag) ──
+  # ── Build desktop client (only on tag) ──
   release:
-    if: github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-latest
     timeout-minutes: 30
 
@@ -123,9 +123,7 @@ jobs:
           if [ -f "../../packages/frontend/public/tray-icon.png" ]; then
             cp "../../packages/frontend/public/tray-icon.png" "$RESOURCES/tray-icon.png"
           fi
-          # Re-sign after modifying bundle contents
-          codesign --force --deep --sign - "$APP"
-          echo "Bundle done: $RESOURCES (re-signed)"
+          echo "Bundle done: $RESOURCES"
         shell: bash
 
       - name: Package artifact
