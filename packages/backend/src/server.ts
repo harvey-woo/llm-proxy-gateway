@@ -264,7 +264,4 @@ async function getApp() {
 }
 
 // For direct Hono testing
-const { app } = await getApp();
-
 export { getApp };
-export default app;
