@@ -12,7 +12,6 @@ import { createAdminRoutes, createStoreState, type StoreState } from "./routes/a
 import { createStatsRoutes } from "./routes/stats.js";
 import { createRatesRoutes } from "./routes/rates.js";
 import { createTemplatesRoutes } from "./routes/templates.js";
-import { startTokenRefresher, stopTokenRefresher } from "./token_refresher.js";
 
 // ============================================================
 // App state
@@ -125,9 +124,6 @@ export async function createApp(opts?: {
     console.warn("[server] Failed to load auths from DB:", err);
   }
 
-  // Start the OAuth token refresher
-  startTokenRefresher(storeRef);
-
   // Config hot-reload is intentionally absent in production.
   // All mutations go through the admin API which directly updates storeRef.
   // The watcher would race with API writes and reset storeRef from config.yaml,
@@ -218,7 +214,6 @@ export async function createApp(opts?: {
 
   // Cleanup function
   const stop = async () => {
-    stopTokenRefresher();
     await closeDb();
   };
 

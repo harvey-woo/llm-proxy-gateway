@@ -21,6 +21,7 @@ interface AuthDisplay {
 interface ProviderOption {
   id: string;
   name: string;
+  base_url?: string;
 }
 
 interface ParsedSession {
@@ -47,11 +48,44 @@ const formProviderId = ref("");
 const formKey = ref("");
 const formName = ref("");
 
-// ── OAuth import: single textarea ──
+// ── OAuth import ──
+// OAuth provider presets. Add new entries here when a new provider is supported.
+// codex: ChatGPT session JSON → accessToken → api.openai.com Bearer auth
+const OAUTH_TYPE_PRESETS: Record<string, { label: string; baseUrlPattern: string }> = {
+  codex: { label: "OpenAI Codex", baseUrlPattern: "api.openai.com" },
+};
+
+const oauthTypes = Object.entries(OAUTH_TYPE_PRESETS).map(([key, val]) => ({
+  id: key,
+  label: val.label,
+  baseUrlPattern: val.baseUrlPattern,
+}));
+
+const selectedOauthType = ref("");
 const oauthProviderId = ref("");
 const oauthSessionJson = ref("");
 const parsedInfo = ref<ParsedSession | null>(null);
-const copied = ref(false);
+
+// Providers filtered by OAuth type baseUrl pattern
+const filteredProviders = computed(() => {
+  const preset = oauthTypes.find((o) => o.id === selectedOauthType.value);
+  if (!preset) return [];
+  return providers.value.filter((p) =>
+    p.base_url?.toLowerCase().includes(preset.baseUrlPattern),
+  );
+});
+
+// Selected OAuth type label
+const selectedOauthTypeLabel = computed(() => {
+  const preset = oauthTypes.find((o) => o.id === selectedOauthType.value);
+  return preset?.label ?? "";
+});
+
+function onOauthTypeChange() {
+  oauthProviderId.value = "";
+  oauthSessionJson.value = "";
+  parsedInfo.value = null;
+}
 
 function copyUrl() {
   navigator.clipboard.writeText("https://chatgpt.com/api/auth/session").then(() => {
@@ -127,10 +161,10 @@ const oauthPreview = computed(() => {
 });
 
 async function fetchProviders() {
-  const res = await api.get<{ data: { id: string; name: string }[] }>("/api/providers");
+  const res = await api.get<{ data: { id: string; name: string; base_url?: string }[] }>("/api/providers");
   if (res.success) {
     const list = res.data.data ?? (res.data as any);
-    providers.value = list.map((p: any) => ({ id: p.id, name: p.name }));
+    providers.value = list.map((p: any) => ({ id: p.id, name: p.name, base_url: p.base_url }));
   }
 }
 
@@ -232,6 +266,7 @@ async function importOAuth() {
 }
 
 function resetOAuthForm() {
+  selectedOauthType.value = "";
   oauthProviderId.value = "";
   oauthSessionJson.value = "";
   parsedInfo.value = null;
@@ -258,6 +293,7 @@ function openAddModal() {
   formProviderId.value = "";
   formKey.value = "";
   formName.value = "";
+  resetOAuthForm();
   showAddModal.value = true;
 }
 
@@ -421,88 +457,64 @@ onMounted(() => {
 
       <!-- OAuth Import Tab -->
       <div v-else class="space-y-4">
-        <!-- Step 1: 选择供应商 -->
+        <!-- OAuth 类型选择 -->
         <div>
+          <label class="form-label">OAuth 类型</label>
+          <select
+            v-model="selectedOauthType"
+            class="select"
+            @change="onOauthTypeChange"
+          >
+            <option value="">请选择 OAuth 类型</option>
+            <option v-for="ot in oauthTypes" :key="ot.id" :value="ot.id">{{ ot.label }}</option>
+          </select>
+        </div>
+
+        <!-- 选择供应商（按 OAuth 类型过滤） -->
+        <div v-if="selectedOauthType">
           <label class="form-label">{{ $t("auths.provider") }}</label>
           <select
             v-model="oauthProviderId"
             class="select"
           >
-            <option value="">{{ $t("auths.selectProvider") }}</option>
-            <option v-for="p in providers" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
+            <option value="">请选择供应商</option>
+            <option v-for="p in filteredProviders" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
           </select>
+          <p v-if="filteredProviders.length === 0" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+            没有匹配的供应商。请先在「供应商」页面创建一个 base_url 包含 <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">{{ oauthTypes.find(o => o.id === selectedOauthType)?.baseUrlPattern }}</code> 的供应商。
+          </p>
         </div>
 
-        <!-- 分步引导 -->
-        <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+        <!-- 引导卡片（仅在选中类型后显示） -->
+        <div v-if="selectedOauthType && oauthProviderId" class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
           <div class="text-sm font-semibold text-indigo-800 dark:text-indigo-200 mb-2 flex items-center gap-1.5">
             <span class="i-tabler-brand-openai text-base" />
-            Codex OAuth 导入步骤
+            {{ selectedOauthTypeLabel }} 导入步骤
           </div>
           <div class="space-y-2.5 text-sm text-indigo-700 dark:text-indigo-300">
-            <!-- Step 1 -->
             <div class="flex gap-2.5">
               <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">1</span>
               <div>
-                <span class="font-medium">登录 ChatGPT</span>
-                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">在浏览器中访问 chatgpt.com 并登录你的账号</p>
+                <span class="font-medium">登录并打开 Session 页面</span>
+                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">浏览器访问以下地址（确保已登录）：</p>
+                <code class="block mt-1 bg-indigo-100 dark:bg-indigo-800/60 px-2 py-1 rounded text-xs font-mono select-all">https://chatgpt.com/api/auth/session</code>
               </div>
             </div>
-            <!-- Step 2 -->
             <div class="flex gap-2.5">
               <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">2</span>
-              <div class="min-w-0">
-                <span class="font-medium">打开 Session 页面</span>
-                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">新标签页访问以下地址：</p>
-                <div class="mt-1 flex items-center gap-2">
-                  <code class="block bg-indigo-100 dark:bg-indigo-800/60 px-2 py-1 rounded text-xs font-mono break-all select-all">https://chatgpt.com/api/auth/session</code>
-                  <button
-                    class="flex-shrink-0 px-2 py-1 rounded text-xs font-medium bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-300 dark:hover:bg-indigo-600 transition-colors"
-                    @click="copyUrl"
-                  >
-                    {{ copied ? '已复制' : '复制' }}
-                  </button>
-                </div>
+              <div>
+                <span class="font-medium">复制返回的 JSON</span>
+                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">全选（Cmd+A）并复制（Cmd+C）完整的 JSON 文本</p>
               </div>
             </div>
-            <!-- Step 3 -->
             <div class="flex gap-2.5">
               <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">3</span>
               <div>
-                <span class="font-medium">复制返回的 JSON</span>
-                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">浏览器会显示一段 JSON 文本，全选（Cmd+A）并复制（Cmd+C）</p>
-              </div>
-            </div>
-            <!-- Step 4 -->
-            <div class="flex gap-2.5">
-              <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">4</span>
-              <div>
                 <span class="font-medium">粘贴到下方文本框</span>
-                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">系统会自动解析并显示你的账号信息</p>
+                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">系统会自动解析你的账号信息</p>
               </div>
             </div>
           </div>
-
-          <!-- 示例 JSON（可折叠） -->
-          <details class="mt-3">
-            <summary class="text-xs text-indigo-500 dark:text-indigo-400 cursor-pointer hover:text-indigo-700 dark:hover:text-indigo-200 select-none">
-              查看返回结果示例
-            </summary>
-            <pre class="mt-2 bg-indigo-100/50 dark:bg-indigo-900/40 p-2.5 rounded text-xs font-mono text-indigo-600 dark:text-indigo-300 overflow-x-auto leading-relaxed">{
-  "user": {
-    "id": "user-CZbXq3wrnuMaVYjzd4qYgUY4",
-    "name": "Harvey Woo",
-    "email": "greedisgood5000@gmail.com"
-  },
-  "expires": "2026-09-02T08:49:20.840Z",
-  "accessToken": "eyJhbGciOiJSUzI1NiIs...",
-  "sessionToken": "eyJhbGciOiJkaXIiLCJlbmMi...",
-  "account": {
-    "planType": "free",
-    "structure": "personal"
-  }
-}</pre>
-          </details>
         </div>
 
         <!-- Session JSON 粘贴框 -->
@@ -517,7 +529,8 @@ onMounted(() => {
             v-model="oauthSessionJson"
             class="input font-mono text-xs h-36 resize-y"
             :class="parsedInfo ? 'border-green-300 dark:border-green-700 focus:border-green-500' : ''"
-            placeholder='访问 https://chatgpt.com/api/auth/session 后，将浏览器显示的完整 JSON 粘贴到这里……'
+            :disabled="!selectedOauthType || !oauthProviderId"
+            placeholder='先选择 OAuth 类型和供应商，然后将 Session JSON 粘贴到这里……'
             @input="parseSessionJson(oauthSessionJson)"
           />
         </div>
@@ -536,10 +549,7 @@ onMounted(() => {
             <div>
               <span class="text-green-500 dark:text-green-400 text-xs">套餐</span>
               <div class="flex items-center gap-1 mt-0.5">
-                <span
-                  class="inline-block w-1.5 h-1.5 rounded-full"
-                  :class="oauthPreview.isFree ? 'bg-gray-400' : 'bg-green-500'"
-                />
+                <span class="inline-block w-1.5 h-1.5 rounded-full" :class="oauthPreview.isFree ? 'bg-gray-400' : 'bg-green-500'" />
                 <span class="font-medium">{{ oauthPreview.plan }}</span>
               </div>
             </div>

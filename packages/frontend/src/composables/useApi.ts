@@ -8,6 +8,7 @@ export interface ApiResponse<T> {
   total?: number;
   page?: number;
   page_size?: number;
+  [key: string]: unknown;
 }
 
 /**

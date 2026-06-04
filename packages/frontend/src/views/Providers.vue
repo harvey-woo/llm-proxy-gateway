@@ -390,11 +390,37 @@ async function handleUpdate() {
   else { toast.error(res.error ?? t("providers.updateFailed")); }
 }
 
+const deletingAuthCount = ref(0);
+const showForceDeleteDialog = ref(false);
+
 async function handleDelete() {
   if (!deletingProvider.value) return;
   const res = await api.remove(`/api/providers/${deletingProvider.value.id}`);
-  if (res.success) { toast.success(t("providers.deleteSuccess")); showDeleteDialog.value = false; deletingProvider.value = null; await fetchProviders(); }
-  else { toast.error(res.error ?? t("providers.deleteFailed")); }
+  if (res.success) {
+    toast.success(t("providers.deleteSuccess"));
+    showDeleteDialog.value = false;
+    deletingProvider.value = null;
+    await fetchProviders();
+  } else if (res.code === "HAS_AUTHS") {
+    deletingAuthCount.value = res.auth_count ?? 0;
+    showDeleteDialog.value = false;
+    showForceDeleteDialog.value = true;
+  } else {
+    toast.error(res.error ?? t("providers.deleteFailed"));
+  }
+}
+
+async function handleForceDelete() {
+  if (!deletingProvider.value) return;
+  const res = await api.remove(`/api/providers/${deletingProvider.value.id}?force=true`);
+  if (res.success) {
+    toast.success(t("providers.deleteSuccess"));
+    showForceDeleteDialog.value = false;
+    deletingProvider.value = null;
+    await fetchProviders();
+  } else {
+    toast.error(res.error ?? t("providers.deleteFailed"));
+  }
 }
 </script>
 
@@ -486,7 +512,8 @@ async function handleDelete() {
           </div>
           <div>
             <label class="form-label">{{ $t('providers.baseUrl') }}</label>
-            <input v-model="formBaseUrl" type="url" class="input" :data-testid="isEditing ? 'provider-base-url-edit-input' : 'provider-url-input'" placeholder="https://api.openai.com" @input="onBaseUrlChange" />
+            <input v-model="formBaseUrl" type="url" :disabled="isEditing" :class="isEditing ? 'input input-disabled' : 'input'" :data-testid="isEditing ? 'provider-base-url-edit-input' : 'provider-url-input'" placeholder="https://api.openai.com" @input="onBaseUrlChange" />
+            <p v-if="isEditing" class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ $t('providers.baseUrlImmutable') }}</p>
           </div>
           <div class="flex items-start gap-4">
             <div class="flex-1">
@@ -682,6 +709,15 @@ async function handleDelete() {
         :message="$t('confirm.deleteProvider', { name: deletingProvider?.name })"
         data-testid="confirm-delete-dialog"
         @confirm="handleDelete"
+      />
+
+      <ConfirmDialog
+        v-model:open="showForceDeleteDialog"
+        :title="$t('confirm.deleteTitle')"
+        :message="$t('confirm.deleteProviderWithAuths', { name: deletingProvider?.name, count: deletingAuthCount })"
+        confirm-text="确认删除"
+        data-testid="confirm-force-delete-dialog"
+        @confirm="handleForceDelete"
       />
 
       </div>

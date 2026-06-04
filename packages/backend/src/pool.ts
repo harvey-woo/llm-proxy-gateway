@@ -89,6 +89,25 @@ export class ProviderPool {
   }
 
   /**
+   * Update an auth's key and metadata in the in-memory map (used after OAuth refresh).
+   */
+  updateAuthKey(oldKey: string, newKey: string, metadataJson: string): void {
+    for (const [, authMap] of this.auths.entries()) {
+      if (authMap.has(oldKey)) {
+        const existing = authMap.get(oldKey)!;
+        const updated = {
+          ...existing,
+          key: newKey,
+          oauth_metadata: metadataJson,
+        } as any;
+        authMap.delete(oldKey);
+        authMap.set(newKey, updated);
+        return;
+      }
+    }
+  }
+
+  /**
    * Get all available auth entries for a model alias.
    * Filters out disabled models, disabled providers, and suspended/expired auths.
    */

@@ -348,7 +348,8 @@ export function createAdminRoutes(
       ...existing,
       id: updatedId,
       name: (body.name as string) ?? existing.name,
-      base_url: (body.base_url as string) ?? existing.base_url,
+      // base_url is immutable after creation — always use existing value
+      base_url: existing.base_url,
       models,
       auths: body.auths !== undefined
         ? ((body.auths as Array<{ key: string; name?: string }>) ?? []).map((a) => ({ key: a.key, name: a.name }))
@@ -383,14 +384,43 @@ export function createAdminRoutes(
   });
 
   // DELETE /api/providers/:id
-  router.delete("/api/providers/:id", (c) => {
+  router.delete("/api/providers/:id", async (c) => {
     const id = c.req.param("id");
-    if (!storeRef.current.providers.has(id)) {
+    const provider = storeRef.current.providers.get(id);
+
+    if (!provider) {
       return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
     }
+
+    const authCount = provider.auths?.length ?? 0;
+    const query = c.req.query();
+    const force = query.force === "true";
+
+    if (authCount > 0 && !force) {
+      return c.json({
+        success: false,
+        error: `Provider has ${authCount} auth key(s). Set force=true to delete all.`,
+        code: "HAS_AUTHS",
+        auth_count: authCount,
+      }, 409);
+    }
+
+    // Delete associated auths from DB
+    if (authCount > 0) {
+      try {
+        const db = await getDb();
+        await db
+          .deleteFrom("provider_auths")
+          .where("provider_id", "=", id)
+          .execute();
+      } catch {
+        // DB might not be available — proceed with in-memory delete
+      }
+    }
+
     storeRef.current.providers.delete(id);
     saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
-    return c.json({ success: true });
+    return c.json({ success: true, auths_deleted: authCount });
   });
 
   // ============================================================

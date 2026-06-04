@@ -24,7 +24,7 @@ describe("Config Loader", () => {
 
   it("auths are not stored in YAML config (managed via DB)", () => {
     for (const [, provider] of config.providers) {
-      expect(provider.auths).toBeUndefined();
+      expect(provider.auths).toEqual([]);
     }
   });
 

@@ -3,6 +3,7 @@ import type { ProviderPool } from "../pool.js";
 import type { LoadedConfig } from "../config/loader.js";
 import { transformRequest, transformResponse } from "../transformer.js";
 import { logRequest } from "../stats.js";
+import { getDb } from "../db/database.js";
 import type { Context } from "hono";
 
 // ============================================================
@@ -283,6 +284,20 @@ async function handleProxyRequest(
       // Record failure for health tracking
       pool.recordFailure(auth.key);
 
+      // ── OAuth token refresh on 401 ──
+      // If upstream returned 401 and this auth has OAuth metadata with refresh_token,
+      // refresh the token and retry with the same auth (only once per attempt).
+      if (upstreamResponse.status === 401 && (auth as any).oauth_metadata) {
+        const refreshed = await tryRefreshOAuthToken(auth, providerId, pool);
+        if (refreshed) {
+          // Update the auth key in selection for the retry
+          selection.authEntry.auth.key = refreshed;
+          console.log(`[gateway] OAuth token refreshed for ${auth.key.slice(0, 12)}..., retrying`);
+          attempt++;
+          continue;
+        }
+      }
+
       // Failover: retry with a different auth (non-streaming only)
       if (attempt < maxRetries) {
         // Unpin stale session
@@ -507,7 +522,88 @@ function formatToPath(format: string): string {
       return "/chat/completions";
   }
 }
+// ── OAuth token refresh on 401 ──
+// When upstream returns 401 and the auth has OAuth metadata with refresh_token,
+// refresh the token, update DB and in-memory store, return new access_token.
+async function tryRefreshOAuthToken(
+  auth: { key: string; oauth_metadata?: string },
+  providerId: string,
+  pool: ProviderPool,
+): Promise<string | null> {
+  if (!auth.oauth_metadata) return null;
 
+  let metadata: Record<string, string>;
+  try {
+    metadata = JSON.parse(auth.oauth_metadata) as Record<string, string>;
+  } catch {
+    return null;
+  }
+
+  const refreshToken = metadata.refresh_token;
+  if (!refreshToken) return null;
+
+  try {
+    const response = await fetch("https://auth.openai.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams({
+        client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        scope: "openid profile email",
+      }).toString(),
+    });
+
+    if (!response.ok) {
+      console.warn(`[gateway] OAuth refresh failed: ${response.status}`);
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + (data.expires_in ?? 3600) * 1000);
+
+    // Update metadata
+    metadata.access_token = data.access_token;
+    if (data.refresh_token) metadata.refresh_token = data.refresh_token;
+    metadata.expires_at = expiresAt.toISOString();
+    metadata.token_refreshed_at = now.toISOString();
+
+    const metadataJson = JSON.stringify(metadata);
+
+    // Update DB
+    try {
+      const db = await getDb();
+      await db
+        .updateTable("provider_auths")
+        .set({
+          key: data.access_token,
+          metadata: metadataJson,
+          updated_at: now.toISOString(),
+        })
+        .where("key", "=", auth.key)
+        .execute();
+    } catch (err) {
+      console.warn("[gateway] Failed to update DB after OAuth refresh:", err);
+    }
+
+    // Update in-memory store (the pool's auth map)
+    pool.updateAuthKey(auth.key, data.access_token, metadataJson);
+
+    return data.access_token;
+  } catch (err) {
+    console.warn("[gateway] OAuth refresh network error:", err);
+    return null;
+  }
+}
 /**
  * Rough token estimation from request body.
  */
