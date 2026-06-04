@@ -715,7 +715,7 @@ function resolveModelAliases(
         const newAlias: ModelAlias = {
           alias: modelName,
           strategy: "proportional",
-          models: [{ provider_id: providerId, model: modelName }],
+          models: [{ provider_id: providerId, model_name: modelName }],
           queue_timeout: 30000,
           enabled: true,
         };
