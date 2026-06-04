@@ -93,6 +93,70 @@ xattr -d com.apple.quarantine LLM\ Proxy\ Gateway*.app
 
 See `config/config.sample.yaml` for provider and model alias configuration. API keys are managed through the UI and stored in the database, not in config files.
 
+## Request Routing
+
+The diagram below shows how a client request flows through the gateway to the upstream provider.
+
+```mermaid
+flowchart TD
+    Client[客户端 / Client]
+    Gateway[LLM Proxy Gateway]
+
+    subgraph Request [请求路由 / Request Routing]
+        A[解析 model alias<br/>提取 session ID] --> B[会话亲和性检查<br/>Session Affinity]
+        B -->|已有绑定| C[检查绑定的 auth 是否可用]
+        C -->|可用| D[直接复用<br/>跳过策略选择]
+        C -->|不可用| E[解除绑定<br/>走正常选择]
+        B -->|新会话| E
+        E --> F[过滤可用 auths<br/>• 模型/Provider 已启用<br/>• auth 状态 active<br/>• 未被限流]
+        F --> G[按策略选择]
+        G --> H1[proportional<br/>选使用率最低]
+        G --> H2[priority<br/>选列表第一个]
+        G --> H3[round_robin<br/>轮流分配]
+        G --> H4[random<br/>随机选择]
+        G --> H5[least_loaded<br/>选并发最低]
+        H1 & H2 & H3 & H4 & H5 --> I[绑定会话 → provider/auth]
+    end
+
+    subgraph Proxy [代理请求 / Proxy Request]
+        J[转换请求格式<br/>Transform] --> K[发送上游请求<br/>fetch Upstream]
+        K -->|成功| L[转换响应格式<br/>记录统计<br/>返回客户端]
+        K -->|失败| M{failover 启用?}
+        M -->|是| N[选下一个可用 auth<br/>解除旧绑定<br/>绑定新 auth]
+        N --> J
+        M -->|否| O[直接返回错误<br/>透传上游错误信息]
+    end
+
+    subgraph Queue [排队 / Queue]
+        P[无可用的 auth] --> Q[加入等待队列]
+        Q --> R{超时?}
+        R -->|有 auth 释放| F
+        R -->|超时| S[返回 503]
+    end
+
+    Client --> A
+    I --> J
+    G -.->|全限流| P
+    O --> Client
+    L --> Client
+    S --> Client
+```
+
+### Strategy Reference
+
+| Strategy | Logic | Use Case |
+|----------|-------|----------|
+| **proportional** | Pick auth with lowest peak usage across all rate limit dimensions | Default, general load balancing |
+| **priority** | Pick the first available auth | Active-passive mode |
+| **round_robin** | Distribute requests sequentially | Even request distribution |
+| **random** | Pick randomly | Simple load spreading |
+| **least_loaded** | Pick auth with lowest current concurrency | Long-running / streaming requests |
+
+### Session Affinity + Failover
+
+- **Session Affinity**: Requests from the same session (e.g. Claude Code session) are pinned to the same provider/auth, preventing context fragmentation across providers
+- **Failover**: When an upstream request fails, the gateway automatically retries with the next available auth (non-streaming only). On retry success, the session is re-pinned to the new provider
+
 ## Tech Stack
 
 | Layer | Technology |
