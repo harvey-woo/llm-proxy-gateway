@@ -130,7 +130,12 @@ export function createStatsRoutes(configRef?: { current: LoadedConfig }): Hono {
 
     const db = await getDb();
     const now = new Date();
-    const data: Array<{ period: string; count: number; auth_key: string; auth_name?: string }> = [];
+    const data: Array<{
+      period: string;
+      count: number;
+      auth_key: string;
+      auth_name?: string;
+    }> = [];
 
     const periodDefs: Array<{ key: string; hours: number }> = [
       { key: "5h", hours: 5 },
@@ -157,13 +162,18 @@ export function createStatsRoutes(configRef?: { current: LoadedConfig }): Hono {
 
     for (const authKey of allAuths) {
       for (const { key, hours } of periodDefs) {
-        const since = new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString();
+        const since = new Date(
+          now.getTime() - hours * 60 * 60 * 1000,
+        ).toISOString();
         const count = logs.filter(
           (l) => l.auth_key === authKey && l.timestamp >= since,
         ).length;
-        const displayKey = authKey.length > 10
-          ? authKey.substring(0, 6) + "..." + authKey.substring(authKey.length - 4)
-          : authKey;
+        const displayKey =
+          authKey.length > 10
+            ? authKey.substring(0, 6) +
+              "..." +
+              authKey.substring(authKey.length - 4)
+            : authKey;
         data.push({
           period: key,
           count,
@@ -185,13 +195,24 @@ export function createStatsRoutes(configRef?: { current: LoadedConfig }): Hono {
     const db = await getDb();
     const config = configRef.current;
 
-    const granularity = (c.req.query("granularity") ?? "hour") as "hour" | "day" | "month";
+    const granularity = (c.req.query("granularity") ?? "hour") as
+      | "hour"
+      | "day"
+      | "month";
     const authKeyFilter = c.req.query("auth_key");
     const hoursParam = c.req.query("hours");
-    const hours = hoursParam ? parseInt(hoursParam, 10) : (granularity === "hour" ? 24 : granularity === "day" ? 168 : 720);
+    const hours = hoursParam
+      ? parseInt(hoursParam, 10)
+      : granularity === "hour"
+        ? 24
+        : granularity === "day"
+          ? 168
+          : 720;
 
     const now = new Date();
-    const since = new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString();
+    const since = new Date(
+      now.getTime() - hours * 60 * 60 * 1000,
+    ).toISOString();
 
     const authNameMap = new Map<string, string>();
     const allAuths = new Set<string>();
@@ -245,9 +266,7 @@ export function createStatsRoutes(configRef?: { current: LoadedConfig }): Hono {
     }
 
     // Determine which auth keys to include
-    const targetAuths = authKeyFilter
-      ? [authKeyFilter]
-      : Array.from(allAuths);
+    const targetAuths = authKeyFilter ? [authKeyFilter] : Array.from(allAuths);
     const data: Array<{
       timestamp: string;
       auth_key: string;
@@ -260,9 +279,11 @@ export function createStatsRoutes(configRef?: { current: LoadedConfig }): Hono {
 
     for (const authKey of targetAuths) {
       // Generate all time buckets (fill gaps with 0)
-      const bucketCount = granularity === "hour" ? hours : Math.ceil(hours / 24);
+      const bucketCount =
+        granularity === "hour" ? hours : Math.ceil(hours / 24);
       for (let i = bucketCount - 1; i >= 0; i--) {
-        const msPerBucket = granularity === "hour" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        const msPerBucket =
+          granularity === "hour" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
         const bucketStart = new Date(now.getTime() - (i + 1) * msPerBucket);
         const bucketEnd = new Date(now.getTime() - i * msPerBucket);
 
@@ -274,17 +295,27 @@ export function createStatsRoutes(configRef?: { current: LoadedConfig }): Hono {
           bucketEnd.setHours(0, 0, 0, 0);
         }
 
-        const bucketLogs = (bucketMap.get(bucketStart.toISOString()) ?? [])
-          .filter((l) => l.auth_key === authKey);
+        const bucketLogs = (
+          bucketMap.get(bucketStart.toISOString()) ?? []
+        ).filter((l) => l.auth_key === authKey);
 
         const inputTokens = bucketLogs.reduce((s, l) => s + l.input_tokens, 0);
-        const outputTokens = bucketLogs.reduce((s, l) => s + l.output_tokens, 0);
-        const cacheTokens = bucketLogs.reduce((s, l) => s + l.cache_hit_tokens + l.cache_create_tokens, 0);
+        const outputTokens = bucketLogs.reduce(
+          (s, l) => s + l.output_tokens,
+          0,
+        );
+        const cacheTokens = bucketLogs.reduce(
+          (s, l) => s + l.cache_hit_tokens + l.cache_create_tokens,
+          0,
+        );
         const totalTokens = inputTokens + outputTokens + cacheTokens;
 
-        const displayKey = authKey.length > 10
-          ? authKey.substring(0, 6) + "..." + authKey.substring(authKey.length - 4)
-          : authKey;
+        const displayKey =
+          authKey.length > 10
+            ? authKey.substring(0, 6) +
+              "..." +
+              authKey.substring(authKey.length - 4)
+            : authKey;
 
         data.push({
           timestamp: bucketStart.toISOString(),

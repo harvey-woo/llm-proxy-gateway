@@ -53,7 +53,9 @@ export const ListModelAliasesResponseSchema = PaginatedResponseSchema(
   ModelAliasWithMetaSchema,
 );
 
-export type ListModelAliasesResponse = z.infer<typeof ListModelAliasesResponseSchema>;
+export type ListModelAliasesResponse = z.infer<
+  typeof ListModelAliasesResponseSchema
+>;
 
 /**
  * GET /api/models/:id - Get a single model alias
@@ -74,7 +76,9 @@ export const CreateModelAliasResponseSchema = SuccessResponseSchema(
   ModelAliasWithMetaSchema,
 );
 
-export type CreateModelAliasResponse = z.infer<typeof CreateModelAliasResponseSchema>;
+export type CreateModelAliasResponse = z.infer<
+  typeof CreateModelAliasResponseSchema
+>;
 
 /**
  * PATCH /api/models/:id - Update a model alias
@@ -85,7 +89,9 @@ export const UpdateModelAliasResponseSchema = SuccessResponseSchema(
   ModelAliasWithMetaSchema,
 );
 
-export type UpdateModelAliasResponse = z.infer<typeof UpdateModelAliasResponseSchema>;
+export type UpdateModelAliasResponse = z.infer<
+  typeof UpdateModelAliasResponseSchema
+>;
 
 /**
  * DELETE /api/models/:id - Delete a model alias
@@ -93,7 +99,9 @@ export type UpdateModelAliasResponse = z.infer<typeof UpdateModelAliasResponseSc
  */
 export const DeleteModelAliasResponseSchema = EmptySuccessSchema;
 
-export type DeleteModelAliasResponse = z.infer<typeof DeleteModelAliasResponseSchema>;
+export type DeleteModelAliasResponse = z.infer<
+  typeof DeleteModelAliasResponseSchema
+>;
 
 // ============================================================
 // Provider API Endpoints
@@ -135,7 +143,9 @@ export const CreateProviderResponseSchema = SuccessResponseSchema(
   ProviderWithMetaSchema,
 );
 
-export type CreateProviderResponse = z.infer<typeof CreateProviderResponseSchema>;
+export type CreateProviderResponse = z.infer<
+  typeof CreateProviderResponseSchema
+>;
 
 /**
  * PATCH /api/providers/:id - Update a provider
@@ -146,7 +156,9 @@ export const UpdateProviderResponseSchema = SuccessResponseSchema(
   ProviderWithMetaSchema,
 );
 
-export type UpdateProviderResponse = z.infer<typeof UpdateProviderResponseSchema>;
+export type UpdateProviderResponse = z.infer<
+  typeof UpdateProviderResponseSchema
+>;
 
 /**
  * DELETE /api/providers/:id - Delete a provider
@@ -154,7 +166,9 @@ export type UpdateProviderResponse = z.infer<typeof UpdateProviderResponseSchema
  */
 export const DeleteProviderResponseSchema = EmptySuccessSchema;
 
-export type DeleteProviderResponse = z.infer<typeof DeleteProviderResponseSchema>;
+export type DeleteProviderResponse = z.infer<
+  typeof DeleteProviderResponseSchema
+>;
 
 // ============================================================
 // Auth API Endpoints (simplified — auths are nested under providers)
@@ -168,9 +182,8 @@ export const ListAuthsQuerySchema = PaginationQuerySchema;
 
 export type ListAuthsQuery = z.infer<typeof ListAuthsQuerySchema>;
 
-export const ListAuthsResponseSchema = PaginatedResponseSchema(
-  AuthWithMetaSchema,
-);
+export const ListAuthsResponseSchema =
+  PaginatedResponseSchema(AuthWithMetaSchema);
 
 export type ListAuthsResponse = z.infer<typeof ListAuthsResponseSchema>;
 
@@ -178,9 +191,7 @@ export type ListAuthsResponse = z.infer<typeof ListAuthsResponseSchema>;
  * GET /api/providers/:id/auths/:key - Get a single auth key
  * Response: auth key with metadata
  */
-export const GetAuthResponseSchema = SuccessResponseSchema(
-  AuthWithMetaSchema,
-);
+export const GetAuthResponseSchema = SuccessResponseSchema(AuthWithMetaSchema);
 
 export type GetAuthResponse = z.infer<typeof GetAuthResponseSchema>;
 
@@ -189,9 +200,8 @@ export type GetAuthResponse = z.infer<typeof GetAuthResponseSchema>;
  * Body: create auth input
  * Response: created auth key with metadata
  */
-export const CreateAuthResponseSchema = SuccessResponseSchema(
-  AuthWithMetaSchema,
-);
+export const CreateAuthResponseSchema =
+  SuccessResponseSchema(AuthWithMetaSchema);
 
 export type CreateAuthResponse = z.infer<typeof CreateAuthResponseSchema>;
 
@@ -200,9 +210,8 @@ export type CreateAuthResponse = z.infer<typeof CreateAuthResponseSchema>;
  * Body: partial update input
  * Response: updated auth key with metadata
  */
-export const UpdateAuthResponseSchema = SuccessResponseSchema(
-  AuthWithMetaSchema,
-);
+export const UpdateAuthResponseSchema =
+  SuccessResponseSchema(AuthWithMetaSchema);
 
 export type UpdateAuthResponse = z.infer<typeof UpdateAuthResponseSchema>;
 
@@ -223,7 +232,9 @@ export const ValidateAuthKeyResponseSchema = SuccessResponseSchema(
   AuthKeyValidationSchema,
 );
 
-export type ValidateAuthKeyResponse = z.infer<typeof ValidateAuthKeyResponseSchema>;
+export type ValidateAuthKeyResponse = z.infer<
+  typeof ValidateAuthKeyResponseSchema
+>;
 
 // ============================================================
 // Stats API Endpoints (simplified)
@@ -237,11 +248,12 @@ export const DashboardStatsQuerySchema = z.object({});
 
 export type DashboardStatsQuery = z.infer<typeof DashboardStatsQuerySchema>;
 
-export const DashboardStatsResponseSchema = SuccessResponseSchema(
-  DashboardStatsSchema,
-);
+export const DashboardStatsResponseSchema =
+  SuccessResponseSchema(DashboardStatsSchema);
 
-export type DashboardStatsResponse = z.infer<typeof DashboardStatsResponseSchema>;
+export type DashboardStatsResponse = z.infer<
+  typeof DashboardStatsResponseSchema
+>;
 
 /**
  * GET /api/stats/requests - Get request stats per auth key
@@ -312,18 +324,22 @@ export type ApiStatsQuery = z.infer<typeof ApiStatsQuerySchema>;
  */
 export const ProxyChatCompletionRequestSchema = z.object({
   model: z.string().min(1),
-  messages: z.array(
-    z.object({
-      role: z.enum(["system", "user", "assistant", "tool"]),
-      content: z.union([z.string(), z.array(z.unknown())]).nullable(),
-    }),
-  ).min(1),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["system", "user", "assistant", "tool"]),
+        content: z.union([z.string(), z.array(z.unknown())]).nullable(),
+      }),
+    )
+    .min(1),
   temperature: z.number().min(0).max(2).optional(),
   stream: z.boolean().optional(),
   max_tokens: z.number().int().positive().optional(),
 });
 
-export type ProxyChatCompletionRequest = z.infer<typeof ProxyChatCompletionRequestSchema>;
+export type ProxyChatCompletionRequest = z.infer<
+  typeof ProxyChatCompletionRequestSchema
+>;
 
 /**
  * Health check response

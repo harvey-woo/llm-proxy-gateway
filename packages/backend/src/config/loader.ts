@@ -2,10 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import {
-  ModelAliasSchema,
-  ProviderSchema,
-} from "@llm-proxy/shared/schemas";
+import { ModelAliasSchema, ProviderSchema } from "@llm-proxy/shared/schemas";
 import type { ModelAlias, Provider } from "@llm-proxy/shared/schemas";
 
 export interface LoadedConfig {
@@ -31,7 +28,14 @@ function getConfigDir(): string {
   const candidates = [
     join(process.cwd(), "config"),
     // Fallback: look relative to this file
-    join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "config"),
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "..",
+      "..",
+      "..",
+      "config",
+    ),
   ];
   for (const dir of candidates) {
     if (existsSync(dir)) {
@@ -88,7 +92,10 @@ export function loadConfig(configDir?: string): LoadedConfig {
       if (parsed.success) {
         providers.set(id, parsed.data);
       } else {
-        console.warn(`[config] Invalid provider "${id}":`, parsed.error.message);
+        console.warn(
+          `[config] Invalid provider "${id}":`,
+          parsed.error.message,
+        );
       }
     }
   }
@@ -104,7 +111,10 @@ export function loadConfig(configDir?: string): LoadedConfig {
       if (parsed.success) {
         models.set(alias, parsed.data);
       } else {
-        console.warn(`[config] Invalid model alias "${alias}":`, parsed.error.message);
+        console.warn(
+          `[config] Invalid model alias "${alias}":`,
+          parsed.error.message,
+        );
       }
     }
   }

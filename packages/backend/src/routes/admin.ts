@@ -68,7 +68,10 @@ export function createAdminRoutes(
     const model = storeRef.current.models.get(id);
 
     if (!model) {
-      return c.json({ success: false, error: "Model alias not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Model alias not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     return c.json({
@@ -93,14 +96,23 @@ export function createAdminRoutes(
 
     // Check duplicate
     if (storeRef.current.models.has(alias)) {
-      return c.json({ success: false, error: "Model alias already exists", code: "DUPLICATE_ALIAS" }, 409);
+      return c.json(
+        {
+          success: false,
+          error: "Model alias already exists",
+          code: "DUPLICATE_ALIAS",
+        },
+        409,
+      );
     }
 
     const now = new Date().toISOString();
     const newItem: ModelAlias = {
       alias,
       strategy: (body.strategy as string) ?? "proportional",
-      models: (body.models as Array<{ provider_id: string; model_name: string }>) ?? [],
+      models:
+        (body.models as Array<{ provider_id: string; model_name: string }>) ??
+        [],
       queue_timeout: (body.queue_timeout as number) ?? 30000,
       enabled: body.enabled !== undefined ? Boolean(body.enabled) : true,
       description: body.description as string | undefined,
@@ -129,7 +141,10 @@ export function createAdminRoutes(
     const existing = storeRef.current.models.get(id);
 
     if (!existing) {
-      return c.json({ success: false, error: "Model alias not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Model alias not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const body = (await c.req.json()) as Record<string, unknown>;
@@ -137,17 +152,30 @@ export function createAdminRoutes(
     // Check duplicate alias if changing alias name
     const newAlias = body.alias as string | undefined;
     if (newAlias && newAlias !== id && storeRef.current.models.has(newAlias)) {
-      return c.json({ success: false, error: "Model alias already exists", code: "DUPLICATE_ALIAS" }, 409);
+      return c.json(
+        {
+          success: false,
+          error: "Model alias already exists",
+          code: "DUPLICATE_ALIAS",
+        },
+        409,
+      );
     }
 
     const updated: ModelAlias = {
       ...existing,
       alias: newAlias ?? id,
       strategy: (body.strategy as string) ?? existing.strategy,
-      models: (body.models as Array<{ provider_id: string; model_name: string }>) ?? existing.models,
+      models:
+        (body.models as Array<{ provider_id: string; model_name: string }>) ??
+        existing.models,
       queue_timeout: (body.queue_timeout as number) ?? existing.queue_timeout,
-      enabled: body.enabled !== undefined ? Boolean(body.enabled) : existing.enabled,
-      description: body.description !== undefined ? (body.description as string | undefined) : existing.description,
+      enabled:
+        body.enabled !== undefined ? Boolean(body.enabled) : existing.enabled,
+      description:
+        body.description !== undefined
+          ? (body.description as string | undefined)
+          : existing.description,
     };
 
     // If alias changed, re-key
@@ -172,7 +200,10 @@ export function createAdminRoutes(
   router.delete("/api/models/:id", (c) => {
     const id = c.req.param("id");
     if (!storeRef.current.models.has(id)) {
-      return c.json({ success: false, error: "Model alias not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Model alias not found", code: "NOT_FOUND" },
+        404,
+      );
     }
     storeRef.current.models.delete(id);
     saveProvidersToConfig(storeRef.current.providers, storeRef.current.models);
@@ -218,7 +249,10 @@ export function createAdminRoutes(
     const provider = storeRef.current.providers.get(id);
 
     if (!provider) {
-      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Provider not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     return c.json({
@@ -243,15 +277,28 @@ export function createAdminRoutes(
     }
 
     if (storeRef.current.providers.has(id)) {
-      return c.json({ success: false, error: "Provider already exists", code: "DUPLICATE_ID" }, 409);
+      return c.json(
+        {
+          success: false,
+          error: "Provider already exists",
+          code: "DUPLICATE_ID",
+        },
+        409,
+      );
     }
 
     // Resolve model aliases if needed
     const models = (body.models as Array<Record<string, unknown>>) ?? [];
-    const resolvedModels = resolveModelAliases(models, storeRef.current.models, id);
+    const resolvedModels = resolveModelAliases(
+      models,
+      storeRef.current.models,
+      id,
+    );
 
     const now = new Date().toISOString();
-    const auths = ((body.auths as Array<{ key: string; name?: string }>) ?? []).map((a) => ({
+    const auths = (
+      (body.auths as Array<{ key: string; name?: string }>) ?? []
+    ).map((a) => ({
       key: a.key,
       name: a.name,
     }));
@@ -262,7 +309,12 @@ export function createAdminRoutes(
       base_url: body.base_url as string,
       models: resolvedModels,
       auths,
-      rate_limits: (body.rate_limits as Array<{ type: string; max: number; period?: string }>) ?? [],
+      rate_limits:
+        (body.rate_limits as Array<{
+          type: string;
+          max: number;
+          period?: string;
+        }>) ?? [],
       request_timeout_ms: (body.request_timeout_ms as number) ?? 60000,
       max_retries: (body.max_retries as number) ?? 3,
       enabled: body.enabled !== undefined ? Boolean(body.enabled) : true,
@@ -296,7 +348,10 @@ export function createAdminRoutes(
             .execute();
         }
       } catch (err) {
-        console.warn(`[admin] Failed to save auths to DB for provider "${id}":`, err);
+        console.warn(
+          `[admin] Failed to save auths to DB for provider "${id}":`,
+          err,
+        );
       }
     }
 
@@ -322,7 +377,10 @@ export function createAdminRoutes(
     const existing = storeRef.current.providers.get(id);
 
     if (!existing) {
-      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Provider not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const body = (await c.req.json()) as Record<string, unknown>;
@@ -330,7 +388,14 @@ export function createAdminRoutes(
     // Check duplicate id if changing
     const newId = body.id as string | undefined;
     if (newId && newId !== id && storeRef.current.providers.has(newId)) {
-      return c.json({ success: false, error: "Provider already exists", code: "DUPLICATE_ID" }, 409);
+      return c.json(
+        {
+          success: false,
+          error: "Provider already exists",
+          code: "DUPLICATE_ID",
+        },
+        409,
+      );
     }
 
     // Resolve model aliases
@@ -351,18 +416,36 @@ export function createAdminRoutes(
       // base_url is immutable after creation — always use existing value
       base_url: existing.base_url,
       models,
-      auths: body.auths !== undefined
-        ? ((body.auths as Array<{ key: string; name?: string }>) ?? []).map((a) => ({ key: a.key, name: a.name }))
-        : existing.auths,
-      rate_limits: (body.rate_limits as Array<{ type: string; max: number; period?: string }>) ?? existing.rate_limits,
-      request_timeout_ms: (body.request_timeout_ms as number) ?? existing.request_timeout_ms,
+      auths:
+        body.auths !== undefined
+          ? ((body.auths as Array<{ key: string; name?: string }>) ?? []).map(
+              (a) => ({ key: a.key, name: a.name }),
+            )
+          : existing.auths,
+      rate_limits:
+        (body.rate_limits as Array<{
+          type: string;
+          max: number;
+          period?: string;
+        }>) ?? existing.rate_limits,
+      request_timeout_ms:
+        (body.request_timeout_ms as number) ?? existing.request_timeout_ms,
       max_retries: (body.max_retries as number) ?? existing.max_retries,
-      enabled: body.enabled !== undefined ? Boolean(body.enabled) : existing.enabled,
+      enabled:
+        body.enabled !== undefined ? Boolean(body.enabled) : existing.enabled,
       pricing_model: (body.pricing_model as string) ?? existing.pricing_model,
       unit_price: (body.unit_price as number) ?? existing.unit_price,
-      subscription: body.subscription !== undefined
-        ? (body.subscription as { price: number; period: string; billing_type: string; included_requests?: number; overage_unit_price?: number; included_tokens?: number })
-        : existing.subscription,
+      subscription:
+        body.subscription !== undefined
+          ? (body.subscription as {
+              price: number;
+              period: string;
+              billing_type: string;
+              included_requests?: number;
+              overage_unit_price?: number;
+              included_tokens?: number;
+            })
+          : existing.subscription,
       currency: (body.currency as string) ?? existing.currency,
     };
 
@@ -389,7 +472,10 @@ export function createAdminRoutes(
     const provider = storeRef.current.providers.get(id);
 
     if (!provider) {
-      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Provider not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const authCount = provider.auths?.length ?? 0;
@@ -397,12 +483,15 @@ export function createAdminRoutes(
     const force = query.force === "true";
 
     if (authCount > 0 && !force) {
-      return c.json({
-        success: false,
-        error: `Provider has ${authCount} auth key(s). Set force=true to delete all.`,
-        code: "HAS_AUTHS",
-        auth_count: authCount,
-      }, 409);
+      return c.json(
+        {
+          success: false,
+          error: `Provider has ${authCount} auth key(s). Set force=true to delete all.`,
+          code: "HAS_AUTHS",
+          auth_count: authCount,
+        },
+        409,
+      );
     }
 
     // Delete associated auths from DB
@@ -433,7 +522,10 @@ export function createAdminRoutes(
     const provider = storeRef.current.providers.get(providerId);
 
     if (!provider) {
-      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Provider not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const db = await getDb();
@@ -447,7 +539,8 @@ export function createAdminRoutes(
       key: row.key,
       name: row.name ?? undefined,
       auth_type: (row.auth_type as "api_key" | "oauth") ?? "api_key",
-      oauth_metadata: row.auth_type === "oauth" ? (row.metadata ?? undefined) : undefined,
+      oauth_metadata:
+        row.auth_type === "oauth" ? (row.metadata ?? undefined) : undefined,
       id: row.id,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -469,7 +562,10 @@ export function createAdminRoutes(
     const provider = storeRef.current.providers.get(providerId);
 
     if (!provider) {
-      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Provider not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const db = await getDb();
@@ -481,7 +577,10 @@ export function createAdminRoutes(
       .executeTakeFirst();
 
     if (!row) {
-      return c.json({ success: false, error: "Auth key not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Auth key not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     return c.json({
@@ -490,7 +589,8 @@ export function createAdminRoutes(
         key: row.key,
         name: row.name ?? undefined,
         auth_type: (row.auth_type as "api_key" | "oauth") ?? "api_key",
-        oauth_metadata: row.auth_type === "oauth" ? (row.metadata ?? undefined) : undefined,
+        oauth_metadata:
+          row.auth_type === "oauth" ? (row.metadata ?? undefined) : undefined,
         id: row.id,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -504,7 +604,10 @@ export function createAdminRoutes(
     const provider = storeRef.current.providers.get(providerId);
 
     if (!provider) {
-      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Provider not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const body = (await c.req.json()) as {
@@ -543,7 +646,8 @@ export function createAdminRoutes(
     }
 
     const authType = body.auth_type ?? "api_key";
-    const metadata = authType === "oauth" ? (body.oauth_metadata ?? null) : null;
+    const metadata =
+      authType === "oauth" ? (body.oauth_metadata ?? null) : null;
 
     const now = new Date().toISOString();
     const id = randomUUID();
@@ -583,7 +687,8 @@ export function createAdminRoutes(
           key: body.key,
           name: body.name,
           auth_type: authType,
-          oauth_metadata: authType === "oauth" ? body.oauth_metadata : undefined,
+          oauth_metadata:
+            authType === "oauth" ? body.oauth_metadata : undefined,
           id,
           created_at: now,
           updated_at: now,
@@ -600,7 +705,10 @@ export function createAdminRoutes(
     const provider = storeRef.current.providers.get(providerId);
 
     if (!provider) {
-      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Provider not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const db = await getDb();
@@ -613,7 +721,10 @@ export function createAdminRoutes(
       .executeTakeFirst();
 
     if (!row) {
-      return c.json({ success: false, error: "Auth key not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Auth key not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const body = (await c.req.json()) as {
@@ -625,11 +736,13 @@ export function createAdminRoutes(
     };
 
     const updatedKey = body.key ?? row.key;
-    const updatedName = body.name !== undefined ? body.name : (row.name ?? undefined);
+    const updatedName =
+      body.name !== undefined ? body.name : (row.name ?? undefined);
     const authType = body.auth_type ?? (row.auth_type as string) ?? "api_key";
-    const metadata = authType === "oauth"
-      ? (body.oauth_metadata ?? row.metadata ?? null)
-      : null;
+    const metadata =
+      authType === "oauth"
+        ? (body.oauth_metadata ?? row.metadata ?? null)
+        : null;
     const now = new Date().toISOString();
 
     await db
@@ -685,7 +798,10 @@ export function createAdminRoutes(
     const provider = storeRef.current.providers.get(providerId);
 
     if (!provider) {
-      return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Provider not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
     const db = await getDb();
@@ -698,13 +814,13 @@ export function createAdminRoutes(
       .executeTakeFirst();
 
     if (!row) {
-      return c.json({ success: false, error: "Auth key not found", code: "NOT_FOUND" }, 404);
+      return c.json(
+        { success: false, error: "Auth key not found", code: "NOT_FOUND" },
+        404,
+      );
     }
 
-    await db
-      .deleteFrom("provider_auths")
-      .where("id", "=", row.id)
-      .execute();
+    await db.deleteFrom("provider_auths").where("id", "=", row.id).execute();
 
     // Keep in-memory state in sync
     const authIndex = (provider.auths ?? []).findIndex((a) => a.key === key);
@@ -775,26 +891,40 @@ export function createAdminRoutes(
     if (raw.session_json && typeof raw.session_json === "string") {
       try {
         const session = JSON.parse(raw.session_json) as Record<string, unknown>;
-        accessToken = (session.accessToken ?? session.access_token ?? "") as string;
-        refreshToken = (session.sessionToken ?? session.refresh_token) as string | undefined;
-        email = ((session.user as Record<string, unknown>)?.email ?? (session as Record<string, unknown>).email) as string | undefined;
+        accessToken = (session.accessToken ??
+          session.access_token ??
+          "") as string;
+        refreshToken = (session.sessionToken ?? session.refresh_token) as
+          | string
+          | undefined;
+        email = ((session.user as Record<string, unknown>)?.email ??
+          (session as Record<string, unknown>).email) as string | undefined;
         expiresAt = (session.expires as string) ?? undefined;
         const account = session.account as Record<string, unknown> | undefined;
-        planType = (account?.planType ?? account?.plan_type) as string | undefined;
+        planType = (account?.planType ?? account?.plan_type) as
+          | string
+          | undefined;
 
         // Parse JWT for plan type if not in top-level
         if (!planType && accessToken?.includes(".")) {
           try {
             const parts = accessToken.split(".");
             const jwt = JSON.parse(atob(parts[1]));
-            const codexAuth = (jwt as Record<string, unknown>)["https://api.openai.com/auth"] as Record<string, unknown> | undefined;
+            const codexAuth = (jwt as Record<string, unknown>)[
+              "https://api.openai.com/auth"
+            ] as Record<string, unknown> | undefined;
             if (codexAuth?.chatgpt_plan_type) {
               planType = codexAuth.chatgpt_plan_type as string;
             }
-          } catch { /* ignore JWT parse errors */ }
+          } catch {
+            /* ignore JWT parse errors */
+          }
         }
       } catch {
-        return c.json({ success: false, error: "Invalid session_json: not valid JSON" }, 400);
+        return c.json(
+          { success: false, error: "Invalid session_json: not valid JSON" },
+          400,
+        );
       }
     } else {
       // Case 2: individual fields
@@ -806,7 +936,13 @@ export function createAdminRoutes(
     }
 
     if (!accessToken) {
-      return c.json({ success: false, error: "access_token or session_json with accessToken is required" }, 400);
+      return c.json(
+        {
+          success: false,
+          error: "access_token or session_json with accessToken is required",
+        },
+        400,
+      );
     }
 
     let provider = storeRef.current.providers.get(providerId);
@@ -844,8 +980,9 @@ export function createAdminRoutes(
     metadata.token_refreshed_at = now;
 
     const metadataJson = JSON.stringify(metadata);
-    const displayName = raw.name as string | undefined
-      ?? (email ? `Codex (${email})` : "Codex OAuth");
+    const displayName =
+      (raw.name as string | undefined) ??
+      (email ? `Codex (${email})` : "Codex OAuth");
 
     await db
       .insertInto("provider_auths")
@@ -971,6 +1108,11 @@ function resolveModelAliases(
       }
     }
 
-    return result as { name: string; enabled?: boolean; weight?: number; alias?: string };
+    return result as {
+      name: string;
+      enabled?: boolean;
+      weight?: number;
+      alias?: string;
+    };
   });
 }

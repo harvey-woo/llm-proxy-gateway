@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import type { RateLimit, ProviderModel, ModelAliasWithMeta } from "@llm-proxy/shared/schemas";
+import type {
+  RateLimit,
+  ProviderModel,
+  ModelAliasWithMeta,
+} from "@llm-proxy/shared/schemas";
 import { useApi } from "../composables/useApi";
 import { useToast } from "../composables/useToast";
 import { useExchangeRates } from "../composables/useExchangeRates";
@@ -53,7 +57,9 @@ const aliasOptions = computed(() => modelAliases.value.map((m) => m.alias));
 const showModal = ref(false);
 const isEditing = computed(() => editingProvider.value !== null);
 const templateDropdownOpen = ref(false);
-const templates = ref<{ id: string; name: string; [key: string]: unknown }[]>([]);
+const templates = ref<{ id: string; name: string; [key: string]: unknown }[]>(
+  [],
+);
 const templatesLoading = ref(false);
 const showDeleteDialog = ref(false);
 const editingProvider = ref<Provider | null>(null);
@@ -87,14 +93,23 @@ const apiFormatOptions = [
 ];
 
 const apiFormatHints: Record<string, string> = {
-  openai_chat: t("providers.apiFormatHint", { url: "https://api.openai.com/v1", examples: "OpenAI / DeepSeek / StepFun / Aliyun" }),
-  anthropic_messages: t("providers.apiFormatHint", { url: "https://api.anthropic.com/v1", examples: "Anthropic / IKunCode" }),
-  openai_responses: t("providers.apiFormatHint", { url: "https://api.openai.com/v1", examples: "OpenAI Responses API" }),
+  openai_chat: t("providers.apiFormatHint", {
+    url: "https://api.openai.com/v1",
+    examples: "OpenAI / DeepSeek / StepFun / Aliyun",
+  }),
+  anthropic_messages: t("providers.apiFormatHint", {
+    url: "https://api.anthropic.com/v1",
+    examples: "Anthropic / IKunCode",
+  }),
+  openai_responses: t("providers.apiFormatHint", {
+    url: "https://api.openai.com/v1",
+    examples: "OpenAI Responses API",
+  }),
 };
 
 const knownUrlPatterns: Record<string, string> = {
-  "anthropic": "anthropic_messages",
-  "ikuncode": "anthropic_messages",
+  anthropic: "anthropic_messages",
+  ikuncode: "anthropic_messages",
 };
 function onBaseUrlChange() {
   const url = formBaseUrl.value.toLowerCase();
@@ -104,14 +119,25 @@ function onBaseUrlChange() {
       return;
     }
   }
-  if (url.includes("openai") || url.includes("deepseek") || url.includes("dashscope") || url.includes("stepfun")) {
+  if (
+    url.includes("openai") ||
+    url.includes("deepseek") ||
+    url.includes("dashscope") ||
+    url.includes("stepfun")
+  ) {
     formApiFormat.value = "openai_chat";
   }
 }
 
 const billingTypeOptions = [
-  { value: "unlimited", label: t("providers.subscriptionBillingTypeUnlimited") },
-  { value: "weighted_requests", label: t("providers.subscriptionBillingTypeWeighted") },
+  {
+    value: "unlimited",
+    label: t("providers.subscriptionBillingTypeUnlimited"),
+  },
+  {
+    value: "weighted_requests",
+    label: t("providers.subscriptionBillingTypeWeighted"),
+  },
   { value: "tokens", label: t("providers.subscriptionBillingTypeTokens") },
 ];
 
@@ -123,29 +149,69 @@ const pricingModelOptions = [
 ];
 
 const formCurrency = ref("USD");
-const formModels = ref<ModelRow[]>([{ name: "", alias: "", weight: undefined, input_price: undefined, output_price: undefined, cache_hit_price: undefined, cache_create_price: undefined }]);
-const formRateLimits = ref<RateLimitForm[]>([{ type: "weighted_requests", max: 100, period: "minute" }]);
+const formModels = ref<ModelRow[]>([
+  {
+    name: "",
+    alias: "",
+    weight: undefined,
+    input_price: undefined,
+    output_price: undefined,
+    cache_hit_price: undefined,
+    cache_create_price: undefined,
+  },
+]);
+const formRateLimits = ref<RateLimitForm[]>([
+  { type: "weighted_requests", max: 100, period: "minute" },
+]);
 
 const formCurrencyOptions = exchangeRates.supportedCurrencies.map((c) => ({
   value: c,
-  label: `${c} (${exchangeRates.currencySymbols[c] || '$'})`,
+  label: `${c} (${exchangeRates.currencySymbols[c] || "$"})`,
 }));
 
-const formCurrencySymbol = computed(() => exchangeRates.getCurrencySymbol(formCurrency.value));
+const formCurrencySymbol = computed(() =>
+  exchangeRates.getCurrencySymbol(formCurrency.value),
+);
 
 const subscriptionRateLimit = computed(() => {
-  if (formPricingModel.value !== "subscription" || formSubscriptionBillingType.value === "unlimited") return null;
+  if (
+    formPricingModel.value !== "subscription" ||
+    formSubscriptionBillingType.value === "unlimited"
+  )
+    return null;
   const period = formSubscriptionPeriod.value === "year" ? "month" : "month";
   if (formSubscriptionBillingType.value === "weighted_requests") {
-    return { type: "weighted_requests" as const, max: formSubscriptionIncludedRequests.value || 0, period, _auto: true };
+    return {
+      type: "weighted_requests" as const,
+      max: formSubscriptionIncludedRequests.value || 0,
+      period,
+      _auto: true,
+    };
   }
-  return { type: "tokens" as const, max: formSubscriptionIncludedTokens.value || 0, period, _auto: true };
+  return {
+    type: "tokens" as const,
+    max: formSubscriptionIncludedTokens.value || 0,
+    period,
+    _auto: true,
+  };
 });
 
 const rateLimitTypes: { value: string; label: string; hasPeriod: boolean }[] = [
-  { value: "weighted_requests", label: t("providers.subscriptionBillingTypeWeighted"), hasPeriod: true },
-  { value: "tokens", label: t("providers.subscriptionBillingTypeTokens"), hasPeriod: true },
-  { value: "concurrency", label: t("providers.subscriptionBillingTypeUnlimited"), hasPeriod: false },
+  {
+    value: "weighted_requests",
+    label: t("providers.subscriptionBillingTypeWeighted"),
+    hasPeriod: true,
+  },
+  {
+    value: "tokens",
+    label: t("providers.subscriptionBillingTypeTokens"),
+    hasPeriod: true,
+  },
+  {
+    value: "concurrency",
+    label: t("providers.subscriptionBillingTypeUnlimited"),
+    hasPeriod: false,
+  },
 ];
 
 const periodOptions = [
@@ -165,13 +231,36 @@ function hasPeriod(type: string): boolean {
   return getRateLimitConfig(type)?.hasPeriod ?? true;
 }
 function onRateLimitTypeChange(rl: RateLimitForm) {
-  if (!hasPeriod(rl.type)) { delete (rl as any).period; }
-  else if (!rl.period) { rl.period = "minute"; }
+  if (!hasPeriod(rl.type)) {
+    delete (rl as any).period;
+  } else if (!rl.period) {
+    rl.period = "minute";
+  }
 }
-function addRateLimit() { formRateLimits.value.push({ type: "weighted_requests", max: 100, period: "minute" }); }
-function removeRateLimit(index: number) { formRateLimits.value.splice(index, 1); }
-function addModelRow() { formModels.value.push({ name: "", alias: "", weight: undefined, input_price: undefined, output_price: undefined, cache_hit_price: undefined, cache_create_price: undefined }); }
-function removeModelRow(index: number) { formModels.value.splice(index, 1); }
+function addRateLimit() {
+  formRateLimits.value.push({
+    type: "weighted_requests",
+    max: 100,
+    period: "minute",
+  });
+}
+function removeRateLimit(index: number) {
+  formRateLimits.value.splice(index, 1);
+}
+function addModelRow() {
+  formModels.value.push({
+    name: "",
+    alias: "",
+    weight: undefined,
+    input_price: undefined,
+    output_price: undefined,
+    cache_hit_price: undefined,
+    cache_create_price: undefined,
+  });
+}
+function removeModelRow(index: number) {
+  formModels.value.splice(index, 1);
+}
 
 async function fetchProviders() {
   const res = await api.get<{ data: Provider[] }>("/api/providers");
@@ -183,26 +272,54 @@ async function fetchModelAliases() {
 }
 
 function resetForm() {
-  formId.value = ""; formName.value = ""; formBaseUrl.value = "";
-  formEnabled.value = true; formDescription.value = "";
-  formMaxRetries.value = 3; formRequestTimeout.value = 60000;
-  formPricingModel.value = "no_billing"; formUnitPrice.value = 0.001;
-  formSubscriptionPrice.value = 0; formSubscriptionPeriod.value = "month";
-  formSubscriptionUnlimited.value = false; formSubscriptionIncludedRequests.value = 0;
-  formSubscriptionOveragePrice.value = 0.001; formSubscriptionAllowOverage.value = false;
-  formSubscriptionBillingType.value = "weighted_requests"; formSubscriptionIncludedTokens.value = 0;
+  formId.value = "";
+  formName.value = "";
+  formBaseUrl.value = "";
+  formEnabled.value = true;
+  formDescription.value = "";
+  formMaxRetries.value = 3;
+  formRequestTimeout.value = 60000;
+  formPricingModel.value = "no_billing";
+  formUnitPrice.value = 0.001;
+  formSubscriptionPrice.value = 0;
+  formSubscriptionPeriod.value = "month";
+  formSubscriptionUnlimited.value = false;
+  formSubscriptionIncludedRequests.value = 0;
+  formSubscriptionOveragePrice.value = 0.001;
+  formSubscriptionAllowOverage.value = false;
+  formSubscriptionBillingType.value = "weighted_requests";
+  formSubscriptionIncludedTokens.value = 0;
   formCurrency.value = "USD";
-  formModels.value = [{ name: "", alias: "", weight: undefined, input_price: undefined, output_price: undefined, cache_hit_price: undefined, cache_create_price: undefined }];
-  formRateLimits.value = []; formHeaders.value = "{}"; formApiFormat.value = "openai_chat";
+  formModels.value = [
+    {
+      name: "",
+      alias: "",
+      weight: undefined,
+      input_price: undefined,
+      output_price: undefined,
+      cache_hit_price: undefined,
+      cache_create_price: undefined,
+    },
+  ];
+  formRateLimits.value = [];
+  formHeaders.value = "{}";
+  formApiFormat.value = "openai_chat";
 }
 
-function openCreate() { editingProvider.value = null; resetForm(); showModal.value = true; }
+function openCreate() {
+  editingProvider.value = null;
+  resetForm();
+  showModal.value = true;
+}
 
 function openEdit(p: Provider) {
   editingProvider.value = p;
   showModal.value = true;
-  formId.value = p.id; formName.value = p.name; formBaseUrl.value = p.base_url;
-  formEnabled.value = p.enabled; formDescription.value = p.description ?? "";
+  formId.value = p.id;
+  formName.value = p.name;
+  formBaseUrl.value = p.base_url;
+  formEnabled.value = p.enabled;
+  formDescription.value = p.description ?? "";
   formPricingModel.value = (p as any).pricing_model ?? "no_billing";
   formUnitPrice.value = (p as any).unit_price ?? 0.001;
   formCurrency.value = (p as any).currency ?? "USD";
@@ -211,69 +328,134 @@ function openEdit(p: Provider) {
     formSubscriptionPrice.value = sub.price ?? 0;
     formSubscriptionPeriod.value = sub.period ?? "month";
     formSubscriptionBillingType.value = sub.billing_type ?? "weighted_requests";
-    formSubscriptionUnlimited.value = sub.billing_type === "unlimited" || sub.included_requests === undefined;
+    formSubscriptionUnlimited.value =
+      sub.billing_type === "unlimited" || sub.included_requests === undefined;
     formSubscriptionIncludedRequests.value = sub.included_requests ?? 0;
     formSubscriptionOveragePrice.value = sub.overage_unit_price ?? 0.001;
     formSubscriptionAllowOverage.value = (sub.overage_unit_price ?? 0) > 0;
     formSubscriptionIncludedTokens.value = sub.included_tokens ?? 0;
   } else {
-    formSubscriptionPrice.value = 0; formSubscriptionPeriod.value = "month";
+    formSubscriptionPrice.value = 0;
+    formSubscriptionPeriod.value = "month";
     formSubscriptionBillingType.value = "weighted_requests";
-    formSubscriptionIncludedRequests.value = 0; formSubscriptionOveragePrice.value = 0.001;
-    formSubscriptionAllowOverage.value = false; formSubscriptionIncludedTokens.value = 0;
+    formSubscriptionIncludedRequests.value = 0;
+    formSubscriptionOveragePrice.value = 0.001;
+    formSubscriptionAllowOverage.value = false;
+    formSubscriptionIncludedTokens.value = 0;
   }
   if (p.models && p.models.length > 0) {
     formModels.value = p.models.map((m) => ({
-      name: m.name, alias: (m as any).alias ?? "",
+      name: m.name,
+      alias: (m as any).alias ?? "",
       weight: (m as any).weight ?? undefined,
-      input_price: (m as any).input_price ?? (m as any).input_price_per_million ?? undefined,
-      output_price: (m as any).output_price ?? (m as any).output_price_per_million ?? undefined,
+      input_price:
+        (m as any).input_price ??
+        (m as any).input_price_per_million ??
+        undefined,
+      output_price:
+        (m as any).output_price ??
+        (m as any).output_price_per_million ??
+        undefined,
       cache_hit_price: (m as any).cache_hit_price ?? undefined,
       cache_create_price: (m as any).cache_create_price ?? undefined,
     }));
   } else {
-    formModels.value = [{ name: "", alias: "", weight: undefined, input_price: undefined, output_price: undefined, cache_hit_price: undefined, cache_create_price: undefined }];
+    formModels.value = [
+      {
+        name: "",
+        alias: "",
+        weight: undefined,
+        input_price: undefined,
+        output_price: undefined,
+        cache_hit_price: undefined,
+        cache_create_price: undefined,
+      },
+    ];
   }
   if (p.rate_limits && p.rate_limits.length > 0) {
     const subRl = subscriptionRateLimit.value;
     formRateLimits.value = p.rate_limits
-      .filter((rl) => { if (!subRl) return true; const period = "period" in rl ? rl.period : undefined; const max = "max" in rl ? rl.max : 0; return !(rl.type === subRl.type && period === subRl.period && max === subRl.max); })
-      .map((rl) => { const base: RateLimitForm = { type: rl.type, max: "max" in rl ? rl.max : 100 }; if ("period" in rl && rl.period) (base as any).period = rl.period; return base; }) as RateLimitForm[];
-  } else { formRateLimits.value = []; }
+      .filter((rl) => {
+        if (!subRl) return true;
+        const period = "period" in rl ? rl.period : undefined;
+        const max = "max" in rl ? rl.max : 0;
+        return !(
+          rl.type === subRl.type &&
+          period === subRl.period &&
+          max === subRl.max
+        );
+      })
+      .map((rl) => {
+        const base: RateLimitForm = {
+          type: rl.type,
+          max: "max" in rl ? rl.max : 100,
+        };
+        if ("period" in rl && rl.period) (base as any).period = rl.period;
+        return base;
+      }) as RateLimitForm[];
+  } else {
+    formRateLimits.value = [];
+  }
   formHeaders.value = JSON.stringify((p as any).headers ?? {}, null, 2);
   formApiFormat.value = (p as any).api_format ?? "openai_chat";
 }
 
-function openDelete(p: Provider) { deletingProvider.value = p; showDeleteDialog.value = true; }
+function openDelete(p: Provider) {
+  deletingProvider.value = p;
+  showDeleteDialog.value = true;
+}
 
 async function fetchTemplates(refresh = false) {
   templatesLoading.value = true;
   try {
-    const res = await api.get<{ data: { templates: { id: string; name: string; [key: string]: unknown }[] } }>(`/api/templates${refresh ? "?refresh=true" : ""}`);
+    const res = await api.get<{
+      data: {
+        templates: { id: string; name: string; [key: string]: unknown }[];
+      };
+    }>(`/api/templates${refresh ? "?refresh=true" : ""}`);
     if (res.success) {
-      const list = (res.data as any).data?.templates ?? (res.data as any).templates ?? [];
+      const list =
+        (res.data as any).data?.templates ?? (res.data as any).templates ?? [];
       templates.value = list;
-      localStorage.setItem("template-cache", JSON.stringify({ templates: list, cached_at: Date.now() }));
+      localStorage.setItem(
+        "template-cache",
+        JSON.stringify({ templates: list, cached_at: Date.now() }),
+      );
       if (refresh) toast.success(t("providers.refreshTemplates"));
     } else if (refresh) toast.error(t("providers.createFailed"));
-  } catch { if (refresh) toast.error(t("providers.createFailed")); }
-  finally { templatesLoading.value = false; }
+  } catch {
+    if (refresh) toast.error(t("providers.createFailed"));
+  } finally {
+    templatesLoading.value = false;
+  }
 }
 
-function applyTemplate(tpl: { id: string; name: string; [key: string]: unknown }) {
+function applyTemplate(tpl: {
+  id: string;
+  name: string;
+  [key: string]: unknown;
+}) {
   templateDropdownOpen.value = false;
   // Build provider body directly from template
-  const models: Record<string, unknown>[] = ((tpl.models as Record<string, unknown>[]) ?? []).map((m) => {
-    const entry: Record<string, unknown> = { name: m.name as string, enabled: true };
+  const models: Record<string, unknown>[] = (
+    (tpl.models as Record<string, unknown>[]) ?? []
+  ).map((m) => {
+    const entry: Record<string, unknown> = {
+      name: m.name as string,
+      enabled: true,
+    };
     if (m.alias) entry.alias = m.alias as string;
     if (m.weight && m.weight !== 1) entry.weight = m.weight;
     if (m.input_price != null) entry.input_price = m.input_price;
     if (m.output_price != null) entry.output_price = m.output_price;
     if (m.cache_hit_price != null) entry.cache_hit_price = m.cache_hit_price;
-    if (m.cache_create_price != null) entry.cache_create_price = m.cache_create_price;
+    if (m.cache_create_price != null)
+      entry.cache_create_price = m.cache_create_price;
     return entry;
   });
-  const rateLimits: Record<string, unknown>[] = ((tpl.rate_limits as Record<string, unknown>[]) ?? []).map((rl) => {
+  const rateLimits: Record<string, unknown>[] = (
+    (tpl.rate_limits as Record<string, unknown>[]) ?? []
+  ).map((rl) => {
     const base: Record<string, unknown> = { type: rl.type, max: rl.max ?? 100 };
     if (rl.period) base.period = rl.period;
     return base;
@@ -311,83 +493,177 @@ function applyTemplate(tpl: { id: string; name: string; [key: string]: unknown }
 
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement;
-  if (!target.closest("[data-testid='provider-template-btn']")) { templateDropdownOpen.value = false; }
+  if (!target.closest("[data-testid='provider-template-btn']")) {
+    templateDropdownOpen.value = false;
+  }
 }
 
 onMounted(() => {
-  fetchProviders(); fetchModelAliases();
+  fetchProviders();
+  fetchModelAliases();
   const cached = localStorage.getItem("template-cache");
-  if (cached) { try { const parsed = JSON.parse(cached); if (Array.isArray(parsed.templates)) templates.value = parsed.templates; } catch { /* ignore */ } }
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed.templates)) templates.value = parsed.templates;
+    } catch {
+      /* ignore */
+    }
+  }
   fetchTemplates();
   document.addEventListener("click", handleClickOutside);
 });
 
 function getHealthBadgeColor(status?: string) {
-  switch (status) { case "healthy": return "bg-green-100 text-green-800"; case "unhealthy": return "bg-red-100 text-red-800"; default: return "bg-gray-100 text-gray-800"; }
+  switch (status) {
+    case "healthy":
+      return "bg-green-100 text-green-800";
+    case "unhealthy":
+      return "bg-red-100 text-red-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
 }
 function getHealthLabel(status?: string) {
-  switch (status) { case "healthy": return t("common.healthy"); case "unhealthy": return t("common.unhealthy"); default: return t("common.unknown"); }
+  switch (status) {
+    case "healthy":
+      return t("common.healthy");
+    case "unhealthy":
+      return t("common.unhealthy");
+    default:
+      return t("common.unknown");
+  }
 }
 
 function buildProviderBody(): Record<string, unknown> {
-  const models: Record<string, unknown>[] = formModels.value.filter((m) => m.name.trim().length > 0).map((m) => {
-    const entry: Record<string, unknown> = { name: m.name.trim(), enabled: true };
-    if (m.weight !== undefined && m.weight !== null && m.weight !== 1) entry.weight = m.weight;
-    if (m.alias.trim()) entry.alias = m.alias.trim();
-    if (m.input_price !== undefined && m.input_price !== null) entry.input_price = m.input_price;
-    if (m.output_price !== undefined && m.output_price !== null) entry.output_price = m.output_price;
-    if (m.cache_hit_price !== undefined && m.cache_hit_price !== null) entry.cache_hit_price = m.cache_hit_price;
-    if (m.cache_create_price !== undefined && m.cache_create_price !== null) entry.cache_create_price = m.cache_create_price;
-    return entry;
-  });
-  const rateLimits = formRateLimits.value.filter((rl) => rl.max > 0).map((rl) => {
-    const base: Record<string, unknown> = { type: rl.type, max: rl.max };
-    if (hasPeriod(rl.type) && rl.period) base.period = rl.period;
-    return base;
-  });
+  const models: Record<string, unknown>[] = formModels.value
+    .filter((m) => m.name.trim().length > 0)
+    .map((m) => {
+      const entry: Record<string, unknown> = {
+        name: m.name.trim(),
+        enabled: true,
+      };
+      if (m.weight !== undefined && m.weight !== null && m.weight !== 1)
+        entry.weight = m.weight;
+      if (m.alias.trim()) entry.alias = m.alias.trim();
+      if (m.input_price !== undefined && m.input_price !== null)
+        entry.input_price = m.input_price;
+      if (m.output_price !== undefined && m.output_price !== null)
+        entry.output_price = m.output_price;
+      if (m.cache_hit_price !== undefined && m.cache_hit_price !== null)
+        entry.cache_hit_price = m.cache_hit_price;
+      if (m.cache_create_price !== undefined && m.cache_create_price !== null)
+        entry.cache_create_price = m.cache_create_price;
+      return entry;
+    });
+  const rateLimits = formRateLimits.value
+    .filter((rl) => rl.max > 0)
+    .map((rl) => {
+      const base: Record<string, unknown> = { type: rl.type, max: rl.max };
+      if (hasPeriod(rl.type) && rl.period) base.period = rl.period;
+      return base;
+    });
   if (subscriptionRateLimit.value) {
     const rl = subscriptionRateLimit.value;
     rateLimits.push({ type: rl.type, max: rl.max, period: rl.period });
   }
-  const body: Record<string, unknown> = { id: formId.value.trim(), name: formName.value.trim(), base_url: formBaseUrl.value.trim(), models, rate_limits: rateLimits, enabled: formEnabled.value };
-  if (formDescription.value.trim()) body.description = formDescription.value.trim();
-  if (formApiFormat.value !== "openai_chat") body.api_format = formApiFormat.value;
-  body.pricing_model = formPricingModel.value; body.unit_price = formUnitPrice.value; body.currency = formCurrency.value;
+  const body: Record<string, unknown> = {
+    id: formId.value.trim(),
+    name: formName.value.trim(),
+    base_url: formBaseUrl.value.trim(),
+    models,
+    rate_limits: rateLimits,
+    enabled: formEnabled.value,
+  };
+  if (formDescription.value.trim())
+    body.description = formDescription.value.trim();
+  if (formApiFormat.value !== "openai_chat")
+    body.api_format = formApiFormat.value;
+  body.pricing_model = formPricingModel.value;
+  body.unit_price = formUnitPrice.value;
+  body.currency = formCurrency.value;
   if (formPricingModel.value === "subscription") {
-    body.subscription = { price: formSubscriptionPrice.value, period: formSubscriptionPeriod.value, billing_type: formSubscriptionBillingType.value };
+    body.subscription = {
+      price: formSubscriptionPrice.value,
+      period: formSubscriptionPeriod.value,
+      billing_type: formSubscriptionBillingType.value,
+    };
     if (formSubscriptionBillingType.value !== "unlimited") {
       if (formSubscriptionBillingType.value === "weighted_requests") {
-        (body.subscription as Record<string, unknown>).included_requests = formSubscriptionIncludedRequests.value;
-        (body.subscription as Record<string, unknown>).overage_unit_price = formSubscriptionAllowOverage.value ? formSubscriptionOveragePrice.value : 0;
+        (body.subscription as Record<string, unknown>).included_requests =
+          formSubscriptionIncludedRequests.value;
+        (body.subscription as Record<string, unknown>).overage_unit_price =
+          formSubscriptionAllowOverage.value
+            ? formSubscriptionOveragePrice.value
+            : 0;
       } else {
-        (body.subscription as Record<string, unknown>).included_tokens = formSubscriptionIncludedTokens.value;
-        (body.subscription as Record<string, unknown>).overage_unit_price = formSubscriptionAllowOverage.value ? formSubscriptionOveragePrice.value : 0;
+        (body.subscription as Record<string, unknown>).included_tokens =
+          formSubscriptionIncludedTokens.value;
+        (body.subscription as Record<string, unknown>).overage_unit_price =
+          formSubscriptionAllowOverage.value
+            ? formSubscriptionOveragePrice.value
+            : 0;
       }
     }
   }
-  try { const parsedHeaders = JSON.parse(formHeaders.value); if (typeof parsedHeaders === 'object' && parsedHeaders !== null) body.headers = parsedHeaders; } catch { /* skip */ }
+  try {
+    const parsedHeaders = JSON.parse(formHeaders.value);
+    if (typeof parsedHeaders === "object" && parsedHeaders !== null)
+      body.headers = parsedHeaders;
+  } catch {
+    /* skip */
+  }
   return body;
 }
 
 async function handleCreate() {
-  if (!formId.value.trim() || !formName.value.trim() || !formBaseUrl.value.trim()) { toast.error(t("providers.fieldsRequired")); return; }
-  if (formModels.value.filter((m) => m.name.trim()).length === 0) { toast.error(t("providers.modelRequired")); return; }
+  if (
+    !formId.value.trim() ||
+    !formName.value.trim() ||
+    !formBaseUrl.value.trim()
+  ) {
+    toast.error(t("providers.fieldsRequired"));
+    return;
+  }
+  if (formModels.value.filter((m) => m.name.trim()).length === 0) {
+    toast.error(t("providers.modelRequired"));
+    return;
+  }
   const body = buildProviderBody();
   if (Object.keys(body).length === 0) return;
   const res = await api.post<Provider>("/api/providers", body);
-  if (res.success) { toast.success(t("providers.createSuccess")); showModal.value = false; resetForm(); await fetchProviders(); }
-  else { toast.error(res.error ?? t("providers.createFailed")); }
+  if (res.success) {
+    toast.success(t("providers.createSuccess"));
+    showModal.value = false;
+    resetForm();
+    await fetchProviders();
+  } else {
+    toast.error(res.error ?? t("providers.createFailed"));
+  }
 }
 
 async function handleUpdate() {
   if (!editingProvider.value) return;
-  if (formModels.value.filter((m) => m.name.trim()).length === 0) { toast.error(t("providers.modelRequired")); return; }
+  if (formModels.value.filter((m) => m.name.trim()).length === 0) {
+    toast.error(t("providers.modelRequired"));
+    return;
+  }
   const body = buildProviderBody();
   if (Object.keys(body).length === 0) return;
   delete (body as any).id;
-  const res = await api.patch<Provider>(`/api/providers/${editingProvider.value.id}`, body);
-  if (res.success) { toast.success(t("providers.updateSuccess")); showModal.value = false; editingProvider.value = null; resetForm(); await fetchProviders(); }
-  else { toast.error(res.error ?? t("providers.updateFailed")); }
+  const res = await api.patch<Provider>(
+    `/api/providers/${editingProvider.value.id}`,
+    body,
+  );
+  if (res.success) {
+    toast.success(t("providers.updateSuccess"));
+    showModal.value = false;
+    editingProvider.value = null;
+    resetForm();
+    await fetchProviders();
+  } else {
+    toast.error(res.error ?? t("providers.updateFailed"));
+  }
 }
 
 const deletingAuthCount = ref(0);
@@ -412,7 +688,9 @@ async function handleDelete() {
 
 async function handleForceDelete() {
   if (!deletingProvider.value) return;
-  const res = await api.remove(`/api/providers/${deletingProvider.value.id}?force=true`);
+  const res = await api.remove(
+    `/api/providers/${deletingProvider.value.id}?force=true`,
+  );
   if (res.success) {
     toast.success(t("providers.deleteSuccess"));
     showForceDeleteDialog.value = false;

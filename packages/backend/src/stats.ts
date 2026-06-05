@@ -23,7 +23,11 @@ export async function logRequest(opts: LogRequestOptions): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
 
-  const totalTokens = opts.inputTokens + opts.outputTokens + opts.cacheHitTokens + opts.cacheCreateTokens;
+  const totalTokens =
+    opts.inputTokens +
+    opts.outputTokens +
+    opts.cacheHitTokens +
+    opts.cacheCreateTokens;
 
   await db
     .insertInto("request_logs")
@@ -67,7 +71,18 @@ export interface PerRequestWeightedRow {
   unit_price: number;
   currency?: string;
   rate_limited: number;
-  auths: Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }>;
+  auths: Array<{
+    auth_key: string;
+    auth_name?: string;
+    limits: Array<{
+      type: string;
+      period?: string;
+      used: number;
+      max: number;
+      remaining: number;
+      usage_pct: number;
+    }>;
+  }>;
 }
 
 export interface PerModelTokenRow {
@@ -77,7 +92,18 @@ export interface PerModelTokenRow {
   currency?: string;
   avg_price_per_m: number;
   rate_limited: number;
-  auths: Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }>;
+  auths: Array<{
+    auth_key: string;
+    auth_name?: string;
+    limits: Array<{
+      type: string;
+      period?: string;
+      used: number;
+      max: number;
+      remaining: number;
+      usage_pct: number;
+    }>;
+  }>;
 }
 
 export interface SubscriptionRow {
@@ -88,7 +114,18 @@ export interface SubscriptionRow {
   period: string;
   overage_cost: number;
   currency?: string;
-  auths: Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }>;
+  auths: Array<{
+    auth_key: string;
+    auth_name?: string;
+    limits: Array<{
+      type: string;
+      period?: string;
+      used: number;
+      max: number;
+      remaining: number;
+      usage_pct: number;
+    }>;
+  }>;
 }
 
 export interface ByPricingModel {
@@ -175,14 +212,21 @@ export interface AuthStats {
  */
 function getAvgWeight(provider: Provider): number {
   if (!provider.models || provider.models.length === 0) return 1;
-  const totalWeight = provider.models.reduce((sum, m) => sum + (m.weight ?? 1), 0);
+  const totalWeight = provider.models.reduce(
+    (sum, m) => sum + (m.weight ?? 1),
+    0,
+  );
   return totalWeight / provider.models.length;
 }
 
 /**
  * Calculate cost based on provider's pricing model.
  */
-function calcCost(weightedRequests: number, provider: Provider, actualTokens?: number): number {
+function calcCost(
+  weightedRequests: number,
+  provider: Provider,
+  actualTokens?: number,
+): number {
   switch (provider.pricing_model) {
     case "per_request_weighted": {
       const unitPrice = provider.unit_price ?? 0.001;
@@ -191,8 +235,12 @@ function calcCost(weightedRequests: number, provider: Provider, actualTokens?: n
     case "per_model_token": {
       const tokens = actualTokens ?? weightedRequests * 1000;
       // Use average model pricing if available
-      const avgInputPrice = provider.models.reduce((s, m) => s + (m.input_price ?? 0), 0) / (provider.models.length || 1);
-      const avgOutputPrice = provider.models.reduce((s, m) => s + (m.output_price ?? 0), 0) / (provider.models.length || 1);
+      const avgInputPrice =
+        provider.models.reduce((s, m) => s + (m.input_price ?? 0), 0) /
+        (provider.models.length || 1);
+      const avgOutputPrice =
+        provider.models.reduce((s, m) => s + (m.output_price ?? 0), 0) /
+        (provider.models.length || 1);
       const avgPricePerM = (avgInputPrice + avgOutputPrice) / 2;
       return Number(((tokens / 1_000_000) * avgPricePerM).toFixed(2));
     }
@@ -220,13 +268,33 @@ function calcTokenCost(
   if (provider.pricing_model !== "per_model_token") return 0;
 
   // Use average model pricing across all models of the provider
-  const avgInputPrice = provider.models.reduce((s, m) => s + (m.input_price ?? 0), 0) / (provider.models.length || 1);
-  const avgOutputPrice = provider.models.reduce((s, m) => s + (m.output_price ?? 0), 0) / (provider.models.length || 1);
-  const avgCacheHitPrice = provider.models.reduce((s, m) => s + ((m as any).cache_hit_price ?? m.input_price ?? 0), 0) / (provider.models.length || 1);
-  const avgCacheCreatePrice = provider.models.reduce((s, m) => s + ((m as any).cache_create_price ?? m.input_price ?? 0), 0) / (provider.models.length || 1);
+  const avgInputPrice =
+    provider.models.reduce((s, m) => s + (m.input_price ?? 0), 0) /
+    (provider.models.length || 1);
+  const avgOutputPrice =
+    provider.models.reduce((s, m) => s + (m.output_price ?? 0), 0) /
+    (provider.models.length || 1);
+  const avgCacheHitPrice =
+    provider.models.reduce(
+      (s, m) => s + ((m as any).cache_hit_price ?? m.input_price ?? 0),
+      0,
+    ) / (provider.models.length || 1);
+  const avgCacheCreatePrice =
+    provider.models.reduce(
+      (s, m) => s + ((m as any).cache_create_price ?? m.input_price ?? 0),
+      0,
+    ) / (provider.models.length || 1);
 
-  const missTokens = Math.max(0, inputTokens - cacheHitTokens - cacheCreateTokens);
-  const cost = (missTokens * avgInputPrice + cacheHitTokens * avgCacheHitPrice + cacheCreateTokens * avgCacheCreatePrice + outputTokens * avgOutputPrice) / 1_000_000;
+  const missTokens = Math.max(
+    0,
+    inputTokens - cacheHitTokens - cacheCreateTokens,
+  );
+  const cost =
+    (missTokens * avgInputPrice +
+      cacheHitTokens * avgCacheHitPrice +
+      cacheCreateTokens * avgCacheCreatePrice +
+      outputTokens * avgOutputPrice) /
+    1_000_000;
 
   return Number(cost.toFixed(2));
 }
@@ -254,7 +322,14 @@ function computeAuthLimits(
   provider: Provider,
   isRateLimited: boolean,
   requestCount: number = 0,
-): Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> {
+): Array<{
+  type: string;
+  period?: string;
+  used: number;
+  max: number;
+  remaining: number;
+  usage_pct: number;
+}> {
   return (provider.rate_limits ?? []).map((rl) => {
     const max = rl.max;
     // Use actual request count for weighted_requests/tokens limits, capped at max
@@ -303,15 +378,32 @@ export async function getDashboardStats(
 
   // Collect all auths and compute stats
   const rateLimitedAuths: RateLimitedAuthEntry[] = [];
-  const providerAuthsMap = new Map<string, Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }>>();
+  const providerAuthsMap = new Map<
+    string,
+    Array<{
+      auth_key: string;
+      auth_name?: string;
+      limits: Array<{
+        type: string;
+        period?: string;
+        used: number;
+        max: number;
+        remaining: number;
+        usage_pct: number;
+      }>;
+    }>
+  >();
 
   // Provider-level aggregations
-  const providerData = new Map<string, {
-    weightedRequests: number;
-    cost: number;
-    rawRequests: number;
-    rateLimited: number;
-  }>();
+  const providerData = new Map<
+    string,
+    {
+      weightedRequests: number;
+      cost: number;
+      rawRequests: number;
+      rateLimited: number;
+    }
+  >();
 
   for (const [providerId, provider] of providers.entries()) {
     const avgWeight = getAvgWeight(provider);
@@ -319,9 +411,20 @@ export async function getDashboardStats(
     let totalRaw = 0;
     let totalRateLimited = 0;
 
-    const authInfos: Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }> = [];
+    const authInfos: Array<{
+      auth_key: string;
+      auth_name?: string;
+      limits: Array<{
+        type: string;
+        period?: string;
+        used: number;
+        max: number;
+        remaining: number;
+        usage_pct: number;
+      }>;
+    }> = [];
 
-    for (const auth of (provider.auths ?? [])) {
+    for (const auth of provider.auths ?? []) {
       const key = `${providerId}:${auth.key}`;
       const rawRequests = authRequestCounts.get(key) ?? 0;
       const weightedRequests = Math.round(rawRequests * avgWeight);
@@ -332,9 +435,12 @@ export async function getDashboardStats(
       if (isRateLimited) totalRateLimited++;
 
       // Mask auth key
-      const maskedKey = auth.key.length > 10
-        ? auth.key.substring(0, 6) + "..." + auth.key.substring(auth.key.length - 4)
-        : auth.key;
+      const maskedKey =
+        auth.key.length > 10
+          ? auth.key.substring(0, 6) +
+            "..." +
+            auth.key.substring(auth.key.length - 4)
+          : auth.key;
 
       authInfos.push({
         auth_key: maskedKey,
@@ -390,22 +496,45 @@ export async function getDashboardStats(
           auths: providerAuthsMap.get(providerId) ?? [],
         });
         break;
-      case "per_model_token":
-        // Aggregate real tokens from request logs for this provider
-        {
+      case "per_model_token": // Aggregate real tokens from request logs for this provider
+      {
         const providerLogs = logs.filter((l) => l.provider_id === providerId);
-        const providerTokens = providerLogs.reduce((s, l) => s + l.total_tokens, 0);
-        const providerInputTokens = providerLogs.reduce((s, l) => s + l.input_tokens, 0);
-        const providerOutputTokens = providerLogs.reduce((s, l) => s + l.output_tokens, 0);
-        const providerCacheHitTokens = providerLogs.reduce((s, l) => s + l.cache_hit_tokens, 0);
-        const providerCacheCreateTokens = providerLogs.reduce((s, l) => s + l.cache_create_tokens, 0);
-        const cacheCost = calcTokenCost(providerInputTokens, providerOutputTokens, providerCacheHitTokens, providerCacheCreateTokens, provider);
+        const providerTokens = providerLogs.reduce(
+          (s, l) => s + l.total_tokens,
+          0,
+        );
+        const providerInputTokens = providerLogs.reduce(
+          (s, l) => s + l.input_tokens,
+          0,
+        );
+        const providerOutputTokens = providerLogs.reduce(
+          (s, l) => s + l.output_tokens,
+          0,
+        );
+        const providerCacheHitTokens = providerLogs.reduce(
+          (s, l) => s + l.cache_hit_tokens,
+          0,
+        );
+        const providerCacheCreateTokens = providerLogs.reduce(
+          (s, l) => s + l.cache_create_tokens,
+          0,
+        );
+        const cacheCost = calcTokenCost(
+          providerInputTokens,
+          providerOutputTokens,
+          providerCacheHitTokens,
+          providerCacheCreateTokens,
+          provider,
+        );
         perModelTokenRows.push({
           provider_id: providerId,
           tokens: providerTokens,
           cost: cacheCost,
           currency: provider.currency,
-          avg_price_per_m: providerTokens > 0 ? Number(((cacheCost / providerTokens) * 1_000_000).toFixed(2)) : 0,
+          avg_price_per_m:
+            providerTokens > 0
+              ? Number(((cacheCost / providerTokens) * 1_000_000).toFixed(2))
+              : 0,
           rate_limited: pd.rateLimited,
           auths: providerAuthsMap.get(providerId) ?? [],
         });
@@ -414,7 +543,10 @@ export async function getDashboardStats(
       case "subscription": {
         const sub = provider.subscription;
         const quota = sub?.included_requests ?? null; // null = unlimited
-        const used = quota !== null ? Math.min(pd.weightedRequests, quota) : pd.weightedRequests;
+        const used =
+          quota !== null
+            ? Math.min(pd.weightedRequests, quota)
+            : pd.weightedRequests;
         const overageCost = calcOverageCost(pd.weightedRequests, provider);
         subscriptionRows.push({
           provider_id: providerId,
@@ -431,20 +563,46 @@ export async function getDashboardStats(
     }
   }
 
-  const totalPerRequestWeightedRequests = perRequestWeightedRows.reduce((s, r) => s + r.weighted_requests, 0);
-  const totalPerRequestWeightedCost = Number(perRequestWeightedRows.reduce((s, r) => s + r.cost, 0).toFixed(2));
-  const totalPerRequestWeightedRateLimited = perRequestWeightedRows.reduce((s, r) => s + r.rate_limited, 0);
+  const totalPerRequestWeightedRequests = perRequestWeightedRows.reduce(
+    (s, r) => s + r.weighted_requests,
+    0,
+  );
+  const totalPerRequestWeightedCost = Number(
+    perRequestWeightedRows.reduce((s, r) => s + r.cost, 0).toFixed(2),
+  );
+  const totalPerRequestWeightedRateLimited = perRequestWeightedRows.reduce(
+    (s, r) => s + r.rate_limited,
+    0,
+  );
 
-  const totalPerModelTokenTokens = perModelTokenRows.reduce((s, r) => s + r.tokens, 0);
-  const totalPerModelTokenCost = Number(perModelTokenRows.reduce((s, r) => s + r.cost, 0).toFixed(2));
-  const totalPerModelTokenRateLimited = perModelTokenRows.reduce((s, r) => s + r.rate_limited, 0);
+  const totalPerModelTokenTokens = perModelTokenRows.reduce(
+    (s, r) => s + r.tokens,
+    0,
+  );
+  const totalPerModelTokenCost = Number(
+    perModelTokenRows.reduce((s, r) => s + r.cost, 0).toFixed(2),
+  );
+  const totalPerModelTokenRateLimited = perModelTokenRows.reduce(
+    (s, r) => s + r.rate_limited,
+    0,
+  );
 
-  const totalSubscriptionCost = Number(subscriptionRows.reduce((s, r) => s + r.cost, 0).toFixed(2));
-  const totalSubscriptionRateLimited = subscriptionRows.reduce((s, r) => s + r.rate_limited, 0);
+  const totalSubscriptionCost = Number(
+    subscriptionRows.reduce((s, r) => s + r.cost, 0).toFixed(2),
+  );
+  const totalSubscriptionRateLimited = subscriptionRows.reduce(
+    (s, r) => s + r.rate_limited,
+    0,
+  );
 
-  const totalCost = totalPerRequestWeightedCost + totalPerModelTokenCost + totalSubscriptionCost;
+  const totalCost =
+    totalPerRequestWeightedCost +
+    totalPerModelTokenCost +
+    totalSubscriptionCost;
   const totalRequests = logs.length;
-  const totalRateLimited = logs.filter((l) => l.status === "rate_limited").length;
+  const totalRateLimited = logs.filter(
+    (l) => l.status === "rate_limited",
+  ).length;
 
   return {
     total_cost: totalCost,
@@ -664,34 +822,32 @@ export async function getProviderStats(
     providerMap.get(log.provider_id)!.push(log);
   }
 
-  return Array.from(providerMap.entries()).map(
-    ([providerId, providerLogs]) => {
-      const totalRequests = providerLogs.length;
-      const successfulRequests = providerLogs.filter(
-        (l) => l.status === "success",
-      ).length;
-      const failedRequests = providerLogs.filter(
-        (l) => l.status === "error" || l.status === "timeout",
-      ).length;
-      const avgLatencyMs =
-        totalRequests > 0
-          ? providerLogs.reduce((s, l) => s + l.latency_ms, 0) / totalRequests
-          : 0;
-      const uptimePercentage =
-        totalRequests > 0
-          ? ((totalRequests - failedRequests) / totalRequests) * 100
-          : 100;
+  return Array.from(providerMap.entries()).map(([providerId, providerLogs]) => {
+    const totalRequests = providerLogs.length;
+    const successfulRequests = providerLogs.filter(
+      (l) => l.status === "success",
+    ).length;
+    const failedRequests = providerLogs.filter(
+      (l) => l.status === "error" || l.status === "timeout",
+    ).length;
+    const avgLatencyMs =
+      totalRequests > 0
+        ? providerLogs.reduce((s, l) => s + l.latency_ms, 0) / totalRequests
+        : 0;
+    const uptimePercentage =
+      totalRequests > 0
+        ? ((totalRequests - failedRequests) / totalRequests) * 100
+        : 100;
 
-      return {
-        providerId,
-        totalRequests,
-        successfulRequests,
-        failedRequests,
-        avgLatencyMs: Math.round(avgLatencyMs * 100) / 100,
-        uptimePercentage: Number(uptimePercentage.toFixed(2)),
-      };
-    },
-  );
+    return {
+      providerId,
+      totalRequests,
+      successfulRequests,
+      failedRequests,
+      avgLatencyMs: Math.round(avgLatencyMs * 100) / 100,
+      uptimePercentage: Number(uptimePercentage.toFixed(2)),
+    };
+  });
 }
 
 // ============================================================

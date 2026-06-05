@@ -4,6 +4,7 @@ import type { LoadedConfig } from "../config/loader.js";
 import { transformRequest, transformResponse } from "../transformer.js";
 import { logRequest } from "../stats.js";
 import { getDb } from "../db/database.js";
+import { refreshAndSaveCodexToken } from "../oauth.js";
 import type { Context } from "hono";
 
 // ============================================================
@@ -176,6 +177,10 @@ async function handleProxyRequest(
   const { authEntry, realModel } = selection;
   const { auth, provider, providerId } = authEntry;
 
+  // Look up model weight for weighted request counting
+  const modelWeight =
+    provider.models?.find((m: any) => m.name === realModel)?.weight ?? 1;
+
   // ── Failover loop: retry with different auth on upstream error ──
   const maxRetries = model.failover ? (provider.max_retries ?? 3) : 0;
   let lastError: { status: number; body: unknown } | null = null;
@@ -188,10 +193,10 @@ async function handleProxyRequest(
       pool.pinSession(sessionId, providerId, auth.key, selection.realModel);
     }
 
-    // Record the request in rate limiter
+    // Record the request in rate limiter (weighted by model multiplier)
     pool
       .getRateLimiter()
-      .recordRequest(auth.key, provider.rate_limits, estimatedTokens);
+      .recordRequest(auth.key, provider.rate_limits, estimatedTokens, modelWeight);
 
     // Determine target format from provider config
     const targetFormat =
@@ -456,11 +461,11 @@ async function handleProxyRequest(
       const cacheCreateTokens =
         (usage as any)?.cache_creation_input_tokens ?? 0;
 
-      // Record actual usage
+      // Record actual usage (with model weight for weighted_requests)
       if (totalTokens > 0) {
         pool
           .getRateLimiter()
-          .recordRequest(auth.key, provider.rate_limits, totalTokens);
+          .recordRequest(auth.key, provider.rate_limits, totalTokens, modelWeight);
       }
 
       // Log the request
@@ -601,7 +606,7 @@ function formatToPath(format: string): string {
 }
 // ── OAuth token refresh on 401 ──
 // When upstream returns 401 and the auth has OAuth metadata with refresh_token,
-// refresh the token, update DB and in-memory store, return new access_token.
+// refresh the token via shared helper, update DB and in-memory store.
 async function tryRefreshOAuthToken(
   auth: { key: string; oauth_metadata?: string },
   providerId: string,
@@ -609,81 +614,28 @@ async function tryRefreshOAuthToken(
 ): Promise<string | null> {
   if (!auth.oauth_metadata) return null;
 
-  let metadata: Record<string, string>;
+  let metadata: Record<string, unknown>;
   try {
-    metadata = JSON.parse(auth.oauth_metadata) as Record<string, string>;
+    metadata = JSON.parse(auth.oauth_metadata) as Record<string, unknown>;
   } catch {
     return null;
   }
 
-  const refreshToken = metadata.refresh_token;
-  if (!refreshToken) return null;
-
-  // Allow custom refresh URL in metadata (for testing or non-OpenAI providers)
-  const refreshUrl =
-    metadata.refresh_url || "https://auth.openai.com/oauth/token";
-
   try {
-    const response = await fetch(refreshUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
+    const metadataJson = await refreshAndSaveCodexToken(
+      metadata,
+      providerId,
+      auth.key,
+      {
+        updateKey: (newKey, mJson) =>
+          pool.updateAuthKey(auth.key, newKey, mJson),
       },
-      body: new URLSearchParams({
-        client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        scope: "openid profile email",
-      }).toString(),
-    });
-
-    if (!response.ok) {
-      console.warn(`[gateway] OAuth refresh failed: ${response.status}`);
-      return null;
-    }
-
-    const data = (await response.json()) as {
-      access_token: string;
-      refresh_token?: string;
-      expires_in?: number;
-    };
-
-    const now = new Date();
-    const expiresAt = new Date(
-      now.getTime() + (data.expires_in ?? 3600) * 1000,
     );
-
-    // Update metadata
-    metadata.access_token = data.access_token;
-    if (data.refresh_token) metadata.refresh_token = data.refresh_token;
-    metadata.expires_at = expiresAt.toISOString();
-    metadata.token_refreshed_at = now.toISOString();
-
-    const metadataJson = JSON.stringify(metadata);
-
-    // Update DB
-    try {
-      const db = await getDb();
-      await db
-        .updateTable("provider_auths")
-        .set({
-          key: data.access_token,
-          metadata: metadataJson,
-          updated_at: now.toISOString(),
-        })
-        .where("key", "=", auth.key)
-        .execute();
-    } catch (err) {
-      console.warn("[gateway] Failed to update DB after OAuth refresh:", err);
-    }
-
-    // Update in-memory store (the pool's auth map)
-    pool.updateAuthKey(auth.key, data.access_token, metadataJson);
-
-    return data.access_token;
+    const parsed = JSON.parse(metadataJson) as Record<string, string>;
+    auth.oauth_metadata = metadataJson;
+    return parsed.access_token ?? null;
   } catch (err) {
-    console.warn("[gateway] OAuth refresh network error:", err);
+    console.warn("[gateway] OAuth refresh failed:", err);
     return null;
   }
 }

@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./server.js";
 
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT) || (isDev ? 28940 : 28930);
 
 const { app, stop } = await createApp();

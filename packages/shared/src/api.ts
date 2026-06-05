@@ -8,7 +8,9 @@ export async function fetchConfig(): Promise<GatewayConfig> {
   return res.json();
 }
 
-export async function updateConfig(config: Partial<GatewayConfig>): Promise<void> {
+export async function updateConfig(
+  config: Partial<GatewayConfig>,
+): Promise<void> {
   const res = await fetch(`${API_BASE}/config`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

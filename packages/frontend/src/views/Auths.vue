@@ -16,6 +16,12 @@ interface AuthDisplay {
   auth_type: "api_key" | "oauth";
   oauth_metadata?: string;
   status?: "healthy" | "warning" | "rate_limited";
+  usage?: Array<{
+    type: string;
+    period: string;
+    used: number;
+    max: number;
+  }>;
 }
 
 interface ProviderOption {
@@ -156,7 +162,7 @@ const selectedFlowType = computed(() => {
 
 async function startCodexOAuth() {
   if (!oauthProviderId.value) {
-    toast.error($t("auths.codexMissingProvider"));
+    toast.error(t("auths.codexMissingProvider"));
     return;
   }
 
@@ -169,7 +175,7 @@ async function startCodexOAuth() {
 
   if (!res.success) {
     codexOAuthStatus.value = "error";
-    codexOAuthError.value = res.error ?? $t("auths.codexOAuthUrlError");
+    codexOAuthError.value = res.error ?? t("auths.codexOAuthUrlError");
     toast.error(codexOAuthError.value);
     return;
   }
@@ -201,16 +207,11 @@ async function startCodexOAuth() {
         clearInterval(codexPollTimer);
         codexPollTimer = null;
       }
-      toast.success($t("auths.codexAuthSuccess"));
+      toast.success(t("auths.codexAuthSuccess"));
       await fetchAuths();
-      // Auto-close modal after 1.5s
-      setTimeout(() => {
-        showAddModal.value = false;
-        resetOAuthForm();
-      }, 1500);
     } else if (status === "error") {
       codexOAuthStatus.value = "error";
-      codexOAuthError.value = error ?? $t("auths.codexAuthFailed");
+      codexOAuthError.value = error ?? t("auths.codexAuthFailed");
       if (codexPollTimer) {
         clearInterval(codexPollTimer);
         codexPollTimer = null;
@@ -219,6 +220,25 @@ async function startCodexOAuth() {
     }
     // "pending" → keep polling
   }, 1500);
+}
+
+/** 用户手动确认授权完成（兜底：当轮询卡死时使用） */
+async function handleCodexAuthDone() {
+  if (codexPollTimer) {
+    clearInterval(codexPollTimer);
+    codexPollTimer = null;
+  }
+  codexOAuthStatus.value = "completed";
+  await fetchAuths();
+  toast.success(t("auths.codexAuthSuccess"));
+}
+
+/** OAuth 完成后的保存：关闭弹窗并刷新列表 */
+async function confirmOAuthSave() {
+  showAddModal.value = false;
+  resetOAuthForm();
+  await fetchAuths();
+  toast.success(t("auths.codexAuthSuccess"));
 }
 
 function copyCodexUrl() {
@@ -302,6 +322,7 @@ async function fetchAuths() {
     }
   }
   authsList.value = items;
+  await fetchUsage();
 }
 
 async function addAuth() {
@@ -341,7 +362,7 @@ function parseCodexJson(raw: string): void {
     const data = JSON.parse(raw.trim());
     const accessToken = data.access_token ?? data.accessToken ?? "";
     if (!accessToken) {
-      toast.error($t("auths.codexNoAccessToken"));
+      toast.error(t("auths.codexNoAccessToken"));
       return;
     }
 
@@ -367,9 +388,9 @@ function parseCodexJson(raw: string): void {
       planType: planType || data.plan_type || "",
       expiresAt: data.expired ?? data.expires ?? "",
     };
-    toast.success($t("auths.codexParseSuccess"));
+    toast.success(t("auths.codexParseSuccess"));
   } catch {
-    toast.warning($t("auths.codexParseError"));
+    toast.warning(t("auths.codexParseError"));
   }
 }
 
@@ -379,18 +400,18 @@ async function importCodexJson() {
     return;
   }
   if (!codexParsedInfo.value) {
-    toast.error($t("auths.codexPasteFirst"));
+    toast.error(t("auths.codexPasteFirst"));
     return;
   }
 
   // 校验必要字段
   if (!codexParsedInfo.value.accessToken) {
-    toast.error($t("auths.codexNoAccessToken"));
+    toast.error(t("auths.codexNoAccessToken"));
     return;
   }
   // access_token 应该是 JWT 格式（三段式）
   if (codexParsedInfo.value.accessToken.split(".").length !== 3) {
-    toast.error($t("auths.codexInvalidJwt"));
+    toast.error(t("auths.codexInvalidJwt"));
     return;
   }
 
@@ -404,12 +425,12 @@ async function importCodexJson() {
     name: oauthName.value.trim() || undefined,
   });
   if (res.success) {
-    toast.success($t("auths.codexImportSuccess"));
+    toast.success(t("auths.codexImportSuccess"));
     showAddModal.value = false;
     resetOAuthForm();
     await fetchAuths();
   } else {
-    toast.error(res.error ?? $t("auths.codexImportFailed"));
+    toast.error(res.error ?? t("auths.codexImportFailed"));
   }
 }
 
@@ -445,9 +466,69 @@ async function deleteAuth(providerId: string, key: string) {
   }
 }
 
+async function fetchUsage() {
+  const res =
+    await api.get<
+      Array<{
+        provider_id: string;
+        auth_key: string;
+        usage: Array<{
+          type: string;
+          period: string;
+          used: number;
+          max: number;
+        }>;
+      }>
+    >("/api/auths/usage");
+  if (!res.success) return;
+
+  const usageData = Array.isArray(res.data)
+    ? res.data
+    : (res.data as any)?.data;
+  if (!Array.isArray(usageData)) return;
+
+  // Merge usage into authsList
+  for (const item of usageData) {
+    const auth = authsList.value.find(
+      (a) => a.key === item.auth_key && a.provider_id === item.provider_id,
+    );
+    if (auth) {
+      auth.usage = item.usage;
+    }
+  }
+}
+defineExpose({ fetchUsage });
+
+async function syncUsage(providerId: string, authKey: string) {
+  const res = await api.post("/api/auths/sync-usage", {
+    provider_id: providerId,
+    auth_key: authKey,
+  });
+  if (res.success) {
+    toast.success(t("auths.syncUsageSuccess"));
+    await fetchUsage();
+  } else {
+    toast.error(res.error ?? t("auths.syncUsageFailed"));
+  }
+}
+
 function maskKey(key: string): string {
   if (key.length <= 12) return key;
   return key.slice(0, 6) + "..." + key.slice(-4);
+}
+
+function formatUsage(used: number, max: number): string {
+  if (max === 0) return `${used}`;
+  const pct = Math.round((used / max) * 100);
+  return `${used}/${max} (${pct}%)`;
+}
+
+function usageColor(used: number, max: number): string {
+  if (max === 0) return "text-gray-500";
+  const pct = used / max;
+  if (pct >= 0.9) return "text-red-600 dark:text-red-400";
+  if (pct >= 0.7) return "text-amber-600 dark:text-amber-400";
+  return "text-green-600 dark:text-green-400";
 }
 
 function openAddModal() {
@@ -472,13 +553,23 @@ onMounted(() => {
         <h1 class="page-title" data-testid="auths-title">{{ $t("auths.title") }}</h1>
         <p class="page-subtitle">{{ $t("auths.subtitle") }}</p>
       </div>
-      <button
-        class="btn-primary"
-        data-testid="auth-add-btn"
-        @click="openAddModal"
-      >
-        + {{ $t("common.add") }}
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          class="btn-secondary btn-sm"
+          data-testid="auth-refresh-usage-btn"
+          @click="fetchUsage"
+        >
+          <span class="i-tabler-refresh text-sm" />
+          {{ $t("auths.refreshUsage") }}
+        </button>
+        <button
+          class="btn-primary"
+          data-testid="auth-add-btn"
+          @click="openAddModal"
+        >
+          + {{ $t("common.add") }}
+        </button>
+      </div>
     </div>
 
     <LoadingSpinner v-if="api.loading.value && authsList.length === 0" />
@@ -497,6 +588,7 @@ onMounted(() => {
             <th class="table-th">{{ $t("auths.authType") }}</th>
             <th class="table-th">{{ $t("auths.apiKey") }}</th>
             <th class="table-th">{{ $t("common.status") }}</th>
+            <th class="table-th">{{ $t("auths.usage") }}</th>
             <th class="text-right px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">{{ $t("common.delete") }}</th>
           </tr>
         </thead>
@@ -528,7 +620,32 @@ onMounted(() => {
                   <span class="i-tabler-circle-check text-sm" /> {{ $t("auths.normal") }}
                 </span>
             </td>
+            <td class="table-td">
+              <div v-if="a.usage && a.usage.length > 0" class="space-y-0.5">
+                <div v-for="u in a.usage" :key="u.period + u.type" class="text-xs whitespace-nowrap" :class="usageColor(u.used, u.max)">
+                  <span class="font-mono">{{ u.period }}:</span>
+                  <template v-if="u.type === 'credits'">
+                    {{ formatUsage(u.used, u.max) }}
+                  </template>
+                  <template v-else-if="u.type === 'reviews'">
+                    {{ formatUsage(u.used, u.max) }}
+                  </template>
+                  <template v-else>
+                    {{ formatUsage(u.used, u.max) }}
+                  </template>
+                </div>
+              </div>
+              <span v-else class="text-xs text-gray-400 dark:text-gray-500">-</span>
+            </td>
             <td class="table-td text-right">
+              <button
+                v-if="a.auth_type === 'oauth'"
+                class="btn-secondary btn-xs mr-1"
+                data-testid="auth-sync-usage-btn"
+                @click="syncUsage(a.provider_id, a.key)"
+              >
+                {{ $t("auths.syncUsage") }}
+              </button>
               <button
                 class="btn-danger"
                 data-testid="auth-delete-btn"
@@ -717,9 +834,10 @@ onMounted(() => {
                 </div>
               </div>
             </div>
-            <div v-else-if="codexOAuthStatus === 'completed'" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
+            <div v-else-if="codexOAuthStatus === 'completed'" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center cursor-pointer" @click="handleCodexAuthDone">
               <span class="i-tabler-circle-check text-2xl text-green-500 mx-auto block mb-1" />
               <p class="text-sm font-medium text-green-700 dark:text-green-300">{{ $t("auths.codexOAuthSuccess") }}</p>
+              <p class="text-xs text-green-500 dark:text-green-400 mt-1">{{ $t("auths.codexClosePrompt") }}</p>
             </div>
             <div v-else-if="codexOAuthStatus === 'error'" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-center">
               <span class="i-tabler-alert-circle text-2xl text-red-500 mx-auto block mb-1" />
@@ -727,15 +845,35 @@ onMounted(() => {
               <p class="text-xs text-red-500 dark:text-red-400 mt-1">{{ codexOAuthError }}</p>
             </div>
 
-            <div v-if="(codexOAuthStatus === 'idle' || codexOAuthStatus === 'error') && codexSubTab === 'oauth'" class="flex items-center justify-center py-4">
-              <button
-                class="btn-primary"
-                :disabled="!oauthProviderId || codexOAuthStatus === 'authorizing'"
-                @click="startCodexOAuth"
-              >
-                <span class="i-tabler-brand-openai text-sm mr-1" />
-                {{ $t("auths.codexOAuthBtn") }}
-              </button>
+            <div v-if="codexSubTab === 'oauth'" class="flex items-center justify-center gap-3 py-4">
+              <!-- 初始/错误状态 → 开始授权 -->
+              <template v-if="codexOAuthStatus === 'idle' || codexOAuthStatus === 'error'">
+                <button
+                  class="btn-primary"
+                  :disabled="!oauthProviderId"
+                  @click="startCodexOAuth"
+                >
+                  <span class="i-tabler-brand-openai text-sm mr-1" />
+                  {{ $t("auths.codexOAuthBtn") }}
+                </button>
+              </template>
+              <!-- 授权中 → 重试 + 手动检查 -->
+              <template v-if="codexOAuthStatus === 'authorizing'">
+                <button
+                  class="btn-secondary"
+                  @click="resetOAuthForm(); selectedOauthType = 'codex'; onOauthTypeChange()"
+                >
+                  <span class="i-tabler-refresh text-sm mr-1" />
+                  {{ $t("common.retry") }}
+                </button>
+                <button
+                  class="btn-primary"
+                  @click="handleCodexAuthDone"
+                >
+                  <span class="i-tabler-check text-sm mr-1" />
+                  {{ $t("auths.codexCheckDone") }}
+                </button>
+              </template>
             </div>
           </template>
 
@@ -830,6 +968,14 @@ onMounted(() => {
             @click="importCodexJson"
           >
             {{ $t("auths.importBtn") }}
+          </button>
+          <button
+            v-if="codexSubTab === 'oauth' && codexOAuthStatus === 'completed'"
+            class="btn-primary"
+            @click="confirmOAuthSave"
+          >
+            <span class="i-tabler-check text-sm mr-1" />
+            {{ $t("auths.confirmSave") }}
           </button>
         </div>
       </div>

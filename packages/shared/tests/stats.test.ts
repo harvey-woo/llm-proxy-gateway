@@ -244,8 +244,20 @@ describe("PerRequestWeightedSectionSchema", () => {
     const result = PerRequestWeightedSectionSchema.safeParse({
       label: "按请求加权",
       rows: [
-        { provider_id: "provider_a", weighted_requests: 8000, cost: 8.0, unit_price: 0.001, rate_limited: 2 },
-        { provider_id: "provider_b", weighted_requests: 3000, cost: 3.0, unit_price: 0.001, rate_limited: 0 },
+        {
+          provider_id: "provider_a",
+          weighted_requests: 8000,
+          cost: 8.0,
+          unit_price: 0.001,
+          rate_limited: 2,
+        },
+        {
+          provider_id: "provider_b",
+          weighted_requests: 3000,
+          cost: 3.0,
+          unit_price: 0.001,
+          rate_limited: 0,
+        },
       ],
       total_weighted_requests: 11000,
       total_cost: 11.0,
@@ -313,7 +325,13 @@ describe("PerModelTokenSectionSchema", () => {
     const result = PerModelTokenSectionSchema.safeParse({
       label: "按 Token",
       rows: [
-        { provider_id: "provider_c", tokens: 1200000, cost: 12.5, avg_price_per_m: 10.0, rate_limited: 0 },
+        {
+          provider_id: "provider_c",
+          tokens: 1200000,
+          cost: 12.5,
+          avg_price_per_m: 10.0,
+          rate_limited: 0,
+        },
       ],
       total_tokens: 1200000,
       total_cost: 12.5,
@@ -388,7 +406,14 @@ describe("SubscriptionSectionSchema", () => {
     const result = SubscriptionSectionSchema.safeParse({
       label: "订阅制",
       rows: [
-        { provider_id: "provider_d", used: 8000, quota: 10000, cost: 100, period: "month", overage_cost: 0 },
+        {
+          provider_id: "provider_d",
+          used: 8000,
+          quota: 10000,
+          cost: 100,
+          period: "month",
+          overage_cost: 0,
+        },
       ],
       total_cost: 100,
       total_rate_limited: 0,
@@ -488,8 +513,22 @@ describe("SectionAuthInfoSchema", () => {
       auth_key: "sk-adm...9i0j",
       auth_name: "Admin Key",
       limits: [
-        { type: "weighted_requests", period: "5h", used: 80, max: 100, remaining: 20, usage_pct: 80 },
-        { type: "tokens", period: "month", used: 500000, max: 1000000, remaining: 500000, usage_pct: 50 },
+        {
+          type: "weighted_requests",
+          period: "5h",
+          used: 80,
+          max: 100,
+          remaining: 20,
+          usage_pct: 80,
+        },
+        {
+          type: "tokens",
+          period: "month",
+          used: 500000,
+          max: 1000000,
+          remaining: 500000,
+          usage_pct: 50,
+        },
       ],
     });
     expect(result.success).toBe(true);
@@ -516,7 +555,16 @@ describe("PerRequestWeightedRowSchema with auths", () => {
         {
           auth_key: "sk-adm...9i0j",
           auth_name: "Admin Key",
-          limits: [{ type: "weighted_requests", period: "5h", used: 80, max: 100, remaining: 20, usage_pct: 80 }],
+          limits: [
+            {
+              type: "weighted_requests",
+              period: "5h",
+              used: 80,
+              max: 100,
+              remaining: 20,
+              usage_pct: 80,
+            },
+          ],
         },
       ],
     });
@@ -577,8 +625,20 @@ describe("DashboardStatsSchema", () => {
         per_request_weighted: {
           label: "按请求加权",
           rows: [
-            { provider_id: "provider_a", weighted_requests: 8000, cost: 8.0, unit_price: 0.001, rate_limited: 2 },
-            { provider_id: "provider_b", weighted_requests: 3000, cost: 3.0, unit_price: 0.001, rate_limited: 0 },
+            {
+              provider_id: "provider_a",
+              weighted_requests: 8000,
+              cost: 8.0,
+              unit_price: 0.001,
+              rate_limited: 2,
+            },
+            {
+              provider_id: "provider_b",
+              weighted_requests: 3000,
+              cost: 3.0,
+              unit_price: 0.001,
+              rate_limited: 0,
+            },
           ],
           total_weighted_requests: 11000,
           total_cost: 11.0,
@@ -587,7 +647,13 @@ describe("DashboardStatsSchema", () => {
         per_model_token: {
           label: "按 Token",
           rows: [
-            { provider_id: "provider_c", tokens: 1200000, cost: 12.5, avg_price_per_m: 10.0, rate_limited: 0 },
+            {
+              provider_id: "provider_c",
+              tokens: 1200000,
+              cost: 12.5,
+              avg_price_per_m: 10.0,
+              rate_limited: 0,
+            },
           ],
           total_tokens: 1200000,
           total_cost: 12.5,
@@ -596,14 +662,26 @@ describe("DashboardStatsSchema", () => {
         subscription: {
           label: "订阅制",
           rows: [
-            { provider_id: "provider_d", used: 8000, quota: 10000, cost: 100, period: "month", overage_cost: 0 },
+            {
+              provider_id: "provider_d",
+              used: 8000,
+              quota: 10000,
+              cost: 100,
+              period: "month",
+              overage_cost: 0,
+            },
           ],
           total_cost: 100,
           total_rate_limited: 0,
         },
       },
       rate_limited_auths: [
-        { auth_key: "sk-xxx", auth_name: "Test Key", provider_id: "provider_c", triggered_rules: ["weighted_requests/5h"] },
+        {
+          auth_key: "sk-xxx",
+          auth_name: "Test Key",
+          provider_id: "provider_c",
+          triggered_rules: ["weighted_requests/5h"],
+        },
       ],
     });
     expect(result.success).toBe(true);

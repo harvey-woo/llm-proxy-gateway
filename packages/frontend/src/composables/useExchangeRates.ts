@@ -1,6 +1,9 @@
 import { ref, computed, watch } from "vue";
 import { useApi } from "./useApi";
-import { CURRENCY_SYMBOLS, SUPPORTED_CURRENCIES } from "@llm-proxy/shared/schemas";
+import {
+  CURRENCY_SYMBOLS,
+  SUPPORTED_CURRENCIES,
+} from "@llm-proxy/shared/schemas";
 
 const STORAGE_KEY = "llm-proxy-preferred-currency";
 
@@ -64,7 +67,11 @@ export function useExchangeRates() {
    * Rate assumption: rates are stored as multiplier FROM 1 USD TO target currency.
    * So rate[CNY] = 7.2 means 1 USD = 7.2 CNY.
    */
-  function convertAmount(amount: number, fromCurrency?: string, targetCurrency?: string): number {
+  function convertAmount(
+    amount: number,
+    fromCurrency?: string,
+    targetCurrency?: string,
+  ): number {
     const target = targetCurrency || preferredCurrency.value;
     const from = fromCurrency || "USD";
 
@@ -94,7 +101,11 @@ export function useExchangeRates() {
   /**
    * Format an amount from its source currency to the preferred/target currency
    */
-  function formatAmount(amount: number, fromCurrency?: string, targetCurrency?: string): string {
+  function formatAmount(
+    amount: number,
+    fromCurrency?: string,
+    targetCurrency?: string,
+  ): string {
     const cur = targetCurrency || preferredCurrency.value;
     const converted = convertAmount(amount, fromCurrency, cur);
     const symbol = CURRENCY_SYMBOLS[cur] || "$";
@@ -109,7 +120,11 @@ export function useExchangeRates() {
   /**
    * Convert a placeholder value from source currency to display currency
    */
-  function convertPlaceholder(value: number, fromCurrency?: string, targetCurrency?: string): string {
+  function convertPlaceholder(
+    value: number,
+    fromCurrency?: string,
+    targetCurrency?: string,
+  ): string {
     const cur = targetCurrency || preferredCurrency.value;
     const converted = convertAmount(value, fromCurrency, cur);
     if (cur === "JPY" || cur === "KRW") {
@@ -143,7 +158,10 @@ export function useExchangeRates() {
    * e.g. pricePlaceholder(0.001, "CNY") -> "¥ 0.007"
    *      pricePlaceholder(0.001, "USD") -> "$ 0.001"
    */
-  function pricePlaceholder(usdValue: number, displayCurrency?: string): string {
+  function pricePlaceholder(
+    usdValue: number,
+    displayCurrency?: string,
+  ): string {
     const currency = displayCurrency || preferredCurrency.value;
     const converted = convertAmount(usdValue, "USD", currency);
     const symbol = CURRENCY_SYMBOLS[currency] || "$";

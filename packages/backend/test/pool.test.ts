@@ -36,10 +36,19 @@ function makeTestProvider(
 describe("ProviderPool load balancing", () => {
   it("round_robin cycles through available auths", () => {
     const providers = new Map<string, Provider>();
-    providers.set("p1", makeTestProvider("p1", "Provider A", [{ name: "gpt-4" }]));
-    providers.set("p2", makeTestProvider("p2", "Provider B", [{ name: "gpt-4" }]));
+    providers.set(
+      "p1",
+      makeTestProvider("p1", "Provider A", [{ name: "gpt-4" }]),
+    );
+    providers.set(
+      "p2",
+      makeTestProvider("p2", "Provider B", [{ name: "gpt-4" }]),
+    );
 
-    const auths = new Map<string, Map<string, { key: string; name?: string }>>();
+    const auths = new Map<
+      string,
+      Map<string, { key: string; name?: string }>
+    >();
     auths.set("p1", new Map([["key-a", makeTestAuth("key-a")]]));
     auths.set("p2", new Map([["key-b", makeTestAuth("key-b")]]));
 
@@ -70,10 +79,19 @@ describe("ProviderPool load balancing", () => {
 
   it("priority selects first available auth", () => {
     const providers = new Map<string, Provider>();
-    providers.set("p1", makeTestProvider("p1", "Provider A", [{ name: "gpt-4" }]));
-    providers.set("p2", makeTestProvider("p2", "Provider B", [{ name: "gpt-4" }]));
+    providers.set(
+      "p1",
+      makeTestProvider("p1", "Provider A", [{ name: "gpt-4" }]),
+    );
+    providers.set(
+      "p2",
+      makeTestProvider("p2", "Provider B", [{ name: "gpt-4" }]),
+    );
 
-    const auths = new Map<string, Map<string, { key: string; name?: string }>>();
+    const auths = new Map<
+      string,
+      Map<string, { key: string; name?: string }>
+    >();
     auths.set("p1", new Map([["key-a", makeTestAuth("key-a")]]));
     auths.set("p2", new Map([["key-b", makeTestAuth("key-b")]]));
 
@@ -101,9 +119,15 @@ describe("ProviderPool load balancing", () => {
 
   it("returns null when no auths are available", () => {
     const providers = new Map<string, Provider>();
-    providers.set("p1", makeTestProvider("p1", "Provider A", [{ name: "gpt-4" }]));
+    providers.set(
+      "p1",
+      makeTestProvider("p1", "Provider A", [{ name: "gpt-4" }]),
+    );
 
-    const auths = new Map<string, Map<string, { key: string; name?: string }>>();
+    const auths = new Map<
+      string,
+      Map<string, { key: string; name?: string }>
+    >();
     // No auths for p1
     auths.set("p1", new Map());
 
@@ -123,10 +147,19 @@ describe("ProviderPool load balancing", () => {
 
   it("respects disabled model entries", () => {
     const providers = new Map<string, Provider>();
-    providers.set("p1", makeTestProvider("p1", "Provider A", [{ name: "gpt-4" }]));
-    providers.set("p2", makeTestProvider("p2", "Provider B", [{ name: "gpt-4" }]));
+    providers.set(
+      "p1",
+      makeTestProvider("p1", "Provider A", [{ name: "gpt-4" }]),
+    );
+    providers.set(
+      "p2",
+      makeTestProvider("p2", "Provider B", [{ name: "gpt-4" }]),
+    );
 
-    const auths = new Map<string, Map<string, { key: string; name?: string }>>();
+    const auths = new Map<
+      string,
+      Map<string, { key: string; name?: string }>
+    >();
     auths.set("p1", new Map([["key-a", makeTestAuth("key-a")]]));
     auths.set("p2", new Map([["key-b", makeTestAuth("key-b")]]));
 
@@ -149,14 +182,19 @@ describe("ProviderPool load balancing", () => {
 
   it("getRealModel returns correct model per provider", () => {
     const providers = new Map<string, Provider>();
-    providers.set("deepseek", makeTestProvider("deepseek", "DeepSeek", [
-      { name: "deepseek-v4-flash" },
-    ]));
-    providers.set("stepfun", makeTestProvider("stepfun", "StepFun", [
-      { name: "step-3.7-flash" },
-    ]));
+    providers.set(
+      "deepseek",
+      makeTestProvider("deepseek", "DeepSeek", [{ name: "deepseek-v4-flash" }]),
+    );
+    providers.set(
+      "stepfun",
+      makeTestProvider("stepfun", "StepFun", [{ name: "step-3.7-flash" }]),
+    );
 
-    const auths = new Map<string, Map<string, { key: string; name?: string }>>();
+    const auths = new Map<
+      string,
+      Map<string, { key: string; name?: string }>
+    >();
     auths.set("deepseek", new Map([["sk-ds", makeTestAuth("sk-ds")]]));
     auths.set("stepfun", new Map([["sk-sf", makeTestAuth("sk-sf")]]));
 
@@ -191,7 +229,10 @@ describe("ProviderPool load balancing", () => {
     providers.set("p1", makeTestProvider("p1", "P1", [{ name: "m1" }]));
     providers.set("p2", makeTestProvider("p2", "P2", [{ name: "m2" }]));
 
-    const auths = new Map<string, Map<string, { key: string; name?: string }>>();
+    const auths = new Map<
+      string,
+      Map<string, { key: string; name?: string }>
+    >();
     auths.set("p1", new Map([["key-a", makeTestAuth("key-a")]]));
     auths.set("p2", new Map([["key-b", makeTestAuth("key-b")]]));
 
@@ -213,7 +254,12 @@ describe("ProviderPool load balancing", () => {
     const sel1 = pool.selectAuth("test", 0, "sess-1");
     expect(sel1).not.toBeNull();
     expect(sel1!.authEntry.providerId).toBe("p1");
-    pool.pinSession("sess-1", sel1!.authEntry.providerId, sel1!.authEntry.auth.key, sel1!.realModel);
+    pool.pinSession(
+      "sess-1",
+      sel1!.authEntry.providerId,
+      sel1!.authEntry.auth.key,
+      sel1!.realModel,
+    );
 
     // Second req same session → still p1 (not p2)
     const sel2 = pool.selectAuth("test", 0, "sess-1");
@@ -229,7 +275,12 @@ describe("ProviderPool load balancing", () => {
     const sel4 = pool.selectAuth("test", 0, "sess-2");
     expect(sel4).not.toBeNull();
     expect(sel4!.authEntry.providerId).toBe("p1");
-    pool.pinSession("sess-2", sel4!.authEntry.providerId, sel4!.authEntry.auth.key, sel4!.realModel);
+    pool.pinSession(
+      "sess-2",
+      sel4!.authEntry.providerId,
+      sel4!.authEntry.auth.key,
+      sel4!.realModel,
+    );
 
     // sess-2 stays on its own pinned provider
     const sel5 = pool.selectAuth("test", 0, "sess-2");
@@ -245,8 +296,8 @@ describe("ProviderPool load balancing", () => {
 describe("Provider construction weight ?? 1 behavior", () => {
   it("defaults weight to 1 when undefined via ProviderModelSchema default", () => {
     const p = makeTestProvider("t1", "TestP1", [
-      { name: "model-a" },          // weight undefined -> ?? 1
-      { name: "model-b", weight: 3 },// weight explicitly set to 3
+      { name: "model-a" }, // weight undefined -> ?? 1
+      { name: "model-b", weight: 3 }, // weight explicitly set to 3
     ]);
     const m1 = p.models[0];
     const m2 = p.models[1];
@@ -277,11 +328,17 @@ describe("Provider construction weight ?? 1 behavior", () => {
 
   it("persists weight through ProviderPool construction", () => {
     const providers = new Map<string, Provider>();
-    providers.set("p1", makeTestProvider("p1", "P1", [
-      { name: "light", weight: 0.5 },
-      { name: "heavy", weight: 10 },
-    ]));
-    providers.set("p2", makeTestProvider("p2", "P2", [{ name: "default-weight" }]));
+    providers.set(
+      "p1",
+      makeTestProvider("p1", "P1", [
+        { name: "light", weight: 0.5 },
+        { name: "heavy", weight: 10 },
+      ]),
+    );
+    providers.set(
+      "p2",
+      makeTestProvider("p2", "P2", [{ name: "default-weight" }]),
+    );
 
     // p2's model should have weight defaulted to 1
     expect(providers.get("p2")!.models[0].weight).toBe(1);

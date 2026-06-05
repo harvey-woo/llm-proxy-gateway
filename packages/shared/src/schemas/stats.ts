@@ -112,7 +112,9 @@ export const PerRequestWeightedSectionSchema = z.object({
   total_rate_limited: z.number().int().min(0),
 });
 
-export type PerRequestWeightedSection = z.infer<typeof PerRequestWeightedSectionSchema>;
+export type PerRequestWeightedSection = z.infer<
+  typeof PerRequestWeightedSectionSchema
+>;
 
 /**
  * Row in the "per_model_token" section table

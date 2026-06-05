@@ -297,7 +297,10 @@ describe("ProviderModelSchema", () => {
   });
 
   it("should accept custom weight", () => {
-    const result = ProviderModelSchema.safeParse({ name: "gpt-4", weight: 2.5 });
+    const result = ProviderModelSchema.safeParse({
+      name: "gpt-4",
+      weight: 2.5,
+    });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.weight).toBe(2.5);
@@ -746,7 +749,7 @@ describe("ProviderSchema", () => {
       ...validProvider,
       headers: {
         "X-Custom-Header": "value1",
-        "Authorization": "Bearer token123",
+        Authorization: "Bearer token123",
       },
     });
     expect(result.success).toBe(true);
@@ -950,8 +953,18 @@ describe("ProviderWithMetaSchema", () => {
 describe("ProviderListSchema", () => {
   it("should parse an array of providers", () => {
     const result = ProviderListSchema.safeParse([
-      { id: "openai", name: "OpenAI", base_url: "https://api.openai.com/v1", models: [{ name: "gpt-4" }] },
-      { id: "anthropic", name: "Anthropic", base_url: "https://api.anthropic.com/v1", models: [{ name: "claude" }] },
+      {
+        id: "openai",
+        name: "OpenAI",
+        base_url: "https://api.openai.com/v1",
+        models: [{ name: "gpt-4" }],
+      },
+      {
+        id: "anthropic",
+        name: "Anthropic",
+        base_url: "https://api.anthropic.com/v1",
+        models: [{ name: "claude" }],
+      },
     ]);
     expect(result.success).toBe(true);
   });
@@ -963,8 +976,18 @@ describe("ProviderListSchema", () => {
 
   it("should reject invalid provider in array", () => {
     const result = ProviderListSchema.safeParse([
-      { id: "ok", name: "OK", base_url: "https://ok.com/v1", models: [{ name: "m" }] },
-      { id: "", name: "Bad", base_url: "https://bad.com/v1", models: [{ name: "m" }] },
+      {
+        id: "ok",
+        name: "OK",
+        base_url: "https://ok.com/v1",
+        models: [{ name: "m" }],
+      },
+      {
+        id: "",
+        name: "Bad",
+        base_url: "https://bad.com/v1",
+        models: [{ name: "m" }],
+      },
     ]);
     expect(result.success).toBe(false);
   });

@@ -5,7 +5,8 @@ import { useExchangeRates } from "../composables/useExchangeRates";
 import { useToast } from "../composables/useToast";
 
 const { t, locale } = useI18n();
-const { preferredCurrency, supportedCurrencies, setCurrency } = useExchangeRates();
+const { preferredCurrency, supportedCurrencies, setCurrency } =
+  useExchangeRates();
 const { success } = useToast();
 
 // ── Language ──
@@ -35,7 +36,9 @@ function applyTheme(t: Theme) {
   theme.value = t;
   localStorage.setItem(STORAGE_THEME, t);
   if (t === "auto") {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
     document.documentElement.classList.toggle("dark", prefersDark);
   } else {
     document.documentElement.classList.toggle("dark", t === "dark");
@@ -49,7 +52,8 @@ const themeOptions: { value: Theme; label: string; icon: string }[] = [
 ];
 
 // ── Port (desktop only) ──
-const isDesktop = typeof window !== "undefined" && !!(window as any).__electrobun;
+const isDesktop =
+  typeof window !== "undefined" && !!(window as any).__electrobun;
 // Derive the actual port from the current URL — works in both browser and desktop
 const actualPort = parseInt(location.port, 10) || undefined;
 const port = ref(actualPort);
@@ -67,7 +71,10 @@ function savePort() {
   port.value = p;
   // Send to host via Electrobun IPC
   if (isDesktop && (window as any).__electrobunSendToHost) {
-    (window as any).__electrobunSendToHost({ type: "save-port", port: String(p) });
+    (window as any).__electrobunSendToHost({
+      type: "save-port",
+      port: String(p),
+    });
   }
   localStorage.setItem(STORAGE_PORT, String(p));
   portSaved.value = true;
@@ -80,7 +87,9 @@ function needsRestart() {
 
 // ── Init ──
 onMounted(() => {
-  lang.value = (localStorage.getItem(STORAGE_LANG) as Lang) || (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en");
+  lang.value =
+    (localStorage.getItem(STORAGE_LANG) as Lang) ||
+    (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en");
   theme.value = (localStorage.getItem(STORAGE_THEME) as Theme) || "auto";
   if (isDesktop) loadPort();
 });

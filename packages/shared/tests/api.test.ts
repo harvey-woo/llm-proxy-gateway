@@ -76,7 +76,9 @@ describe("ListModelAliasesQuerySchema", () => {
   });
 
   it("should accept provider_id filter", () => {
-    const result = ListModelAliasesQuerySchema.safeParse({ provider_id: "openai" });
+    const result = ListModelAliasesQuerySchema.safeParse({
+      provider_id: "openai",
+    });
     expect(result.success).toBe(true);
   });
 });
@@ -417,8 +419,20 @@ describe("DashboardStatsResponseSchema", () => {
           per_request_weighted: {
             label: "按请求加权",
             rows: [
-              { provider_id: "provider_a", weighted_requests: 8000, cost: 8.0, unit_price: 0.001, rate_limited: 2 },
-              { provider_id: "provider_b", weighted_requests: 3000, cost: 3.0, unit_price: 0.001, rate_limited: 0 },
+              {
+                provider_id: "provider_a",
+                weighted_requests: 8000,
+                cost: 8.0,
+                unit_price: 0.001,
+                rate_limited: 2,
+              },
+              {
+                provider_id: "provider_b",
+                weighted_requests: 3000,
+                cost: 3.0,
+                unit_price: 0.001,
+                rate_limited: 0,
+              },
             ],
             total_weighted_requests: 11000,
             total_cost: 11.0,
@@ -427,7 +441,13 @@ describe("DashboardStatsResponseSchema", () => {
           per_model_token: {
             label: "按 Token",
             rows: [
-              { provider_id: "provider_c", tokens: 1200000, cost: 12.5, avg_price_per_m: 10.0, rate_limited: 0 },
+              {
+                provider_id: "provider_c",
+                tokens: 1200000,
+                cost: 12.5,
+                avg_price_per_m: 10.0,
+                rate_limited: 0,
+              },
             ],
             total_tokens: 1200000,
             total_cost: 12.5,
@@ -436,14 +456,26 @@ describe("DashboardStatsResponseSchema", () => {
           subscription: {
             label: "订阅制",
             rows: [
-              { provider_id: "provider_d", used: 8000, quota: 10000, cost: 100, period: "month", overage_cost: 0 },
+              {
+                provider_id: "provider_d",
+                used: 8000,
+                quota: 10000,
+                cost: 100,
+                period: "month",
+                overage_cost: 0,
+              },
             ],
             total_cost: 100,
             total_rate_limited: 0,
           },
         },
         rate_limited_auths: [
-          { auth_key: "sk-xxx", auth_name: "Test Key", provider_id: "provider_c", triggered_rules: ["weighted_requests/5h"] },
+          {
+            auth_key: "sk-xxx",
+            auth_name: "Test Key",
+            provider_id: "provider_c",
+            triggered_rules: ["weighted_requests/5h"],
+          },
         ],
       },
     });
@@ -508,7 +540,9 @@ describe("TokenStatsQuerySchema", () => {
   });
 
   it("should reject invalid granularity", () => {
-    const result = TokenStatsQuerySchema.safeParse({ token_granularity: "week" });
+    const result = TokenStatsQuerySchema.safeParse({
+      token_granularity: "week",
+    });
     expect(result.success).toBe(false);
   });
 });

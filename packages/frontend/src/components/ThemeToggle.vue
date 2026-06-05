@@ -15,7 +15,9 @@ function applyTheme(t: Theme) {
   localStorage.setItem(STORAGE_KEY, t);
 
   if (t === "auto") {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
     document.documentElement.classList.toggle("dark", prefersDark);
     // Listen for system changes
     listenToSystem();

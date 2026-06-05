@@ -15,7 +15,9 @@ const THEME_KEY = "llm-proxy-theme";
 function applyTheme(t: Theme) {
   localStorage.setItem(THEME_KEY, t);
   if (t === "auto") {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
     document.documentElement.classList.toggle("dark", prefersDark);
   } else {
     document.documentElement.classList.toggle("dark", t === "dark");
@@ -37,9 +39,12 @@ onMounted(() => {
   applyTheme(stored || "auto");
 
   const lang = localStorage.getItem(LANG_KEY) as Lang | null;
-  applyLang(lang || (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en"));
+  applyLang(
+    lang || (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en"),
+  );
 
-  isDesktop.value = typeof window !== "undefined" && !!(window as any).__electrobun;
+  isDesktop.value =
+    typeof window !== "undefined" && !!(window as any).__electrobun;
 });
 </script>
 

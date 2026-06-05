@@ -52,7 +52,9 @@ export const PreferredCurrencyResponseSchema = z.object({
   currency: CurrencySchema.default("USD"),
 });
 
-export type PreferredCurrencyResponse = z.infer<typeof PreferredCurrencyResponseSchema>;
+export type PreferredCurrencyResponse = z.infer<
+  typeof PreferredCurrencyResponseSchema
+>;
 
 /**
  * Preferred currency update request
@@ -61,4 +63,6 @@ export const PreferredCurrencyRequestSchema = z.object({
   currency: CurrencySchema,
 });
 
-export type PreferredCurrencyRequest = z.infer<typeof PreferredCurrencyRequestSchema>;
+export type PreferredCurrencyRequest = z.infer<
+  typeof PreferredCurrencyRequestSchema
+>;

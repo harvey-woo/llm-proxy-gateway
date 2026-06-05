@@ -20,24 +20,39 @@ export function transformResponse(
 
   try {
     // Client expects OpenAI Chat, upstream returned different format
-    if (clientFormat === "openai_chat" && upstreamFormat === "anthropic_messages") {
+    if (
+      clientFormat === "openai_chat" &&
+      upstreamFormat === "anthropic_messages"
+    ) {
       return messagesResponseToChatResponse(responseData as any, model);
     }
-    if (clientFormat === "openai_chat" && upstreamFormat === "openai_responses") {
+    if (
+      clientFormat === "openai_chat" &&
+      upstreamFormat === "openai_responses"
+    ) {
       return responsesResponseToChatResponse(responseData as any, model);
     }
 
     // Client expects Anthropic Messages, upstream returned different format
-    if (clientFormat === "anthropic_messages" && upstreamFormat === "openai_chat") {
+    if (
+      clientFormat === "anthropic_messages" &&
+      upstreamFormat === "openai_chat"
+    ) {
       return chatResponseToMessagesResponse(responseData as any, model);
     }
-    if (clientFormat === "anthropic_messages" && upstreamFormat === "openai_responses") {
+    if (
+      clientFormat === "anthropic_messages" &&
+      upstreamFormat === "openai_responses"
+    ) {
       return responsesResponseToChatResponse(responseData as any, model);
     }
 
     // Client expects OpenAI Responses
     if (clientFormat === "openai_responses") {
-      if (upstreamFormat === "openai_chat" || upstreamFormat === "anthropic_messages") {
+      if (
+        upstreamFormat === "openai_chat" ||
+        upstreamFormat === "anthropic_messages"
+      ) {
         return chatResponseToMessagesResponse(responseData as any, model);
       }
     }
@@ -160,11 +175,16 @@ export function chatToMessages(body: ChatCompletionRequest): MessagesRequest {
   const systemMessages = body.messages.filter((m) => m.role === "system");
   const nonSystemMessages = body.messages.filter((m) => m.role !== "system");
 
-  const system = systemMessages.length > 0
-    ? systemMessages
-        .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content)))
-        .join("\n")
-    : undefined;
+  const system =
+    systemMessages.length > 0
+      ? systemMessages
+          .map((m) =>
+            typeof m.content === "string"
+              ? m.content
+              : JSON.stringify(m.content),
+          )
+          .join("\n")
+      : undefined;
 
   const messages = nonSystemMessages.map((m) => ({
     role: m.role as "user" | "assistant",
@@ -175,7 +195,10 @@ export function chatToMessages(body: ChatCompletionRequest): MessagesRequest {
     model: body.model,
     messages,
     system,
-    max_tokens: (body.max_tokens as number) ?? (body.max_completion_tokens as number) ?? 4096,
+    max_tokens:
+      (body.max_tokens as number) ??
+      (body.max_completion_tokens as number) ??
+      4096,
     temperature: body.temperature,
     top_p: body.top_p,
     stop_sequences: Array.isArray(body.stop)
@@ -231,9 +254,7 @@ export function chatToResponses(body: ChatCompletionRequest): ResponsesRequest {
     type: "message" as const,
     role: m.role,
     content:
-      typeof m.content === "string"
-        ? m.content
-        : JSON.stringify(m.content),
+      typeof m.content === "string" ? m.content : JSON.stringify(m.content),
   }));
 
   return {
@@ -368,7 +389,8 @@ export function responsesResponseToChatResponse(
           role: "assistant",
           content,
         },
-        finish_reason: response.status === "completed" ? "stop" : response.status,
+        finish_reason:
+          response.status === "completed" ? "stop" : response.status,
       },
     ],
     usage: response.usage,

@@ -30,7 +30,11 @@ describe("getTemplateUrl — config file reading priority", () => {
       process.env.CONFIG_DIR = ORIGINAL_CONFIG_DIR;
     }
     if (tmpDir) {
-      try { rmSync(tmpDir, { recursive: true }); } catch { /* ignore */ }
+      try {
+        rmSync(tmpDir, { recursive: true });
+      } catch {
+        /* ignore */
+      }
     }
   });
 
@@ -60,7 +64,10 @@ describe("getTemplateUrl — config file reading priority", () => {
   it("returns null when config.yaml exists but template_url is missing", async () => {
     vi.resetModules();
     process.env.CONFIG_DIR = tmpDir;
-    writeFileSync(join(tmpDir, "config.yaml"), "providers: {}\nmodel_aliases: {}\n");
+    writeFileSync(
+      join(tmpDir, "config.yaml"),
+      "providers: {}\nmodel_aliases: {}\n",
+    );
     const { getTemplateUrl: gtu } = await import("../src/config/loader.js");
     expect(gtu()).toBeNull();
   });
@@ -68,7 +75,10 @@ describe("getTemplateUrl — config file reading priority", () => {
   it("returns null when template_url is empty string", async () => {
     vi.resetModules();
     process.env.CONFIG_DIR = tmpDir;
-    writeFileSync(join(tmpDir, "config.yaml"), 'template_url: ""\nproviders: {}\nmodel_aliases: {}');
+    writeFileSync(
+      join(tmpDir, "config.yaml"),
+      'template_url: ""\nproviders: {}\nmodel_aliases: {}',
+    );
     const { getTemplateUrl: gtu } = await import("../src/config/loader.js");
     expect(gtu()).toBeNull();
   });
@@ -76,7 +86,10 @@ describe("getTemplateUrl — config file reading priority", () => {
   it("returns null when template_url is whitespace-only", async () => {
     vi.resetModules();
     process.env.CONFIG_DIR = tmpDir;
-    writeFileSync(join(tmpDir, "config.yaml"), 'template_url: "  "\nproviders: {}\nmodel_aliases: {}');
+    writeFileSync(
+      join(tmpDir, "config.yaml"),
+      'template_url: "  "\nproviders: {}\nmodel_aliases: {}',
+    );
     const { getTemplateUrl: gtu } = await import("../src/config/loader.js");
     expect(gtu()).toBeNull();
   });

@@ -6,7 +6,8 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
-const isDesktop = typeof window !== "undefined" && !!(window as any).__electrobun;
+const isDesktop =
+  typeof window !== "undefined" && !!(window as any).__electrobun;
 const isMac = isDesktop && navigator.platform.includes("Mac");
 const isWindows = isDesktop && navigator.platform.includes("Win");
 
@@ -17,11 +18,36 @@ function sendWindowControl(action: "minimize" | "maximize" | "close") {
 }
 
 const tabs = [
-  { key: "nav.dashboard", path: "/dashboard", testId: "nav-dashboard-tab", icon: "i-tabler-layout-dashboard" },
-  { key: "nav.models", path: "/models", testId: "nav-models-tab", icon: "i-tabler-route-2" },
-  { key: "nav.providers", path: "/providers", testId: "nav-providers-tab", icon: "i-tabler-server" },
-  { key: "nav.auths", path: "/auths", testId: "nav-auths-tab", icon: "i-tabler-key" },
-  { key: "nav.stats", path: "/stats", testId: "nav-stats-tab", icon: "i-tabler-chart-bar" },
+  {
+    key: "nav.dashboard",
+    path: "/dashboard",
+    testId: "nav-dashboard-tab",
+    icon: "i-tabler-layout-dashboard",
+  },
+  {
+    key: "nav.models",
+    path: "/models",
+    testId: "nav-models-tab",
+    icon: "i-tabler-route-2",
+  },
+  {
+    key: "nav.providers",
+    path: "/providers",
+    testId: "nav-providers-tab",
+    icon: "i-tabler-server",
+  },
+  {
+    key: "nav.auths",
+    path: "/auths",
+    testId: "nav-auths-tab",
+    icon: "i-tabler-key",
+  },
+  {
+    key: "nav.stats",
+    path: "/stats",
+    testId: "nav-stats-tab",
+    icon: "i-tabler-chart-bar",
+  },
 ];
 
 function isActive(path: string) {

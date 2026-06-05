@@ -1,4 +1,8 @@
-import type { RateLimit, RateLimitType, RateLimitPeriod } from "@llm-proxy/shared/schemas";
+import type {
+  RateLimit,
+  RateLimitType,
+  RateLimitPeriod,
+} from "@llm-proxy/shared/schemas";
 
 export interface RateLimitState {
   requestCounts: Map<string, number[]>; // period_key -> [timestamps]
@@ -54,6 +58,11 @@ function getPeriodKey(period: RateLimitPeriod): string {
     }
     case "month":
       return now.toISOString().slice(0, 7); // YYYY-MM
+    case "30d": {
+      // 30-day rolling window
+      const epoch30 = Math.floor(Date.now() / (30 * 24 * 60 * 60 * 1000));
+      return `${epoch30}`;
+    }
     default:
       return now.toISOString();
   }
@@ -74,6 +83,8 @@ function getPeriodMs(period: RateLimitPeriod): number {
     case "week":
       return 7 * 24 * 60 * 60 * 1000;
     case "month":
+      return 30 * 24 * 60 * 60 * 1000;
+    case "30d":
       return 30 * 24 * 60 * 60 * 1000;
     default:
       return 60 * 1000;
@@ -138,9 +149,7 @@ export class RateLimiter {
     // Clean up old timestamps outside the period
     const periodMs = getPeriodMs(limit.period);
     const now = Date.now();
-    const validTimestamps = timestamps.filter(
-      (t) => now - t < periodMs,
-    );
+    const validTimestamps = timestamps.filter((t) => now - t < periodMs);
     this.state.requestCounts.set(periodKey, validTimestamps);
 
     if (validTimestamps.length >= limit.max) {
@@ -197,13 +206,17 @@ export class RateLimiter {
     authKey: string,
     rateLimits: RateLimit[],
     actualTokens: number = 0,
+    weight: number = 1,
   ): void {
     for (const limit of rateLimits) {
       switch (limit.type) {
         case "weighted_requests": {
           const periodKey = `${authKey}:requests:${limit.period}:${getPeriodKey(limit.period)}`;
           const timestamps = this.state.requestCounts.get(periodKey) ?? [];
-          timestamps.push(Date.now());
+          // Push N timestamps for weighted counting
+          for (let w = 0; w < weight; w++) {
+            timestamps.push(Date.now());
+          }
           this.state.requestCounts.set(periodKey, timestamps);
           break;
         }
@@ -247,9 +260,7 @@ export class RateLimiter {
           const timestamps = this.state.requestCounts.get(periodKey) ?? [];
           const periodMs = getPeriodMs(limit.period);
           const now = Date.now();
-          const validTimestamps = timestamps.filter(
-            (t) => now - t < periodMs,
-          );
+          const validTimestamps = timestamps.filter((t) => now - t < periodMs);
           usage[`requests_per_${limit.period}`] = validTimestamps.length;
           break;
         }

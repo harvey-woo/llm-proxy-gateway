@@ -22,10 +22,7 @@ export const AuthSchema = z.object({
     .min(1, "Key/token must not be empty")
     .max(512, "Key/token too long (max 512 chars)"),
   /** Human-readable label */
-  name: z
-    .string()
-    .max(128, "Key name too long (max 128 chars)")
-    .optional(),
+  name: z.string().max(128, "Key name too long (max 128 chars)").optional(),
   /** Auth type discriminator. Defaults to "api_key" for backward compatibility. */
   auth_type: AuthTypeSchema,
   /** OAuth provider identifier. Required when auth_type = "oauth". */
@@ -59,10 +56,7 @@ export const UpdateAuthSchema = z.object({
     .min(1, "Key/token must not be empty")
     .max(512, "Key/token too long (max 512 chars)")
     .optional(),
-  name: z
-    .string()
-    .max(128, "Key name too long (max 128 chars)")
-    .optional(),
+  name: z.string().max(128, "Key name too long (max 128 chars)").optional(),
   auth_type: AuthTypeSchema.optional(),
   oauth_provider: OAuthProviderSchema.optional(),
   oauth_metadata: z.string().optional(),

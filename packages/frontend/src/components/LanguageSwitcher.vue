@@ -37,7 +37,10 @@ function cycle() {
 
 onMounted(() => {
   const stored = localStorage.getItem(STORAGE_KEY) as Lang | null;
-  applyLang(stored || (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en"));
+  applyLang(
+    stored ||
+      (navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en"),
+  );
 });
 </script>
 

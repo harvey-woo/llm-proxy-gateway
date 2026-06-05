@@ -51,15 +51,18 @@ export function useApi() {
       const data = (await res.json()) as ApiResponse<T>;
       if (!res.ok || !data.success) {
         error.value = data.error ?? "Request failed";
-        return { success: false, data: data.data, error: data.error, code: data.code };
+        return {
+          success: false,
+          data: data.data,
+          error: data.error,
+          code: data.code,
+        };
       }
       return data;
-    }
-    catch (e: any) {
+    } catch (e: any) {
       error.value = e.message ?? "Network error";
       return { success: false, data: null as unknown as T, error: error.value };
-    }
-    finally {
+    } finally {
       loading.value = false;
     }
   }

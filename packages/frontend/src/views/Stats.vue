@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { Line } from 'vue-chartjs';
+import { Line } from "vue-chartjs";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,11 +12,14 @@ import {
   Tooltip,
   Legend,
   Filler,
-} from 'chart.js';
-import type { TokensPerHour, RequestsPerPeriod } from '@llm-proxy/shared/schemas';
-import { useApi } from '../composables/useApi';
-import LoadingSpinner from '../components/LoadingSpinner.vue';
-import EmptyState from '../components/EmptyState.vue';
+} from "chart.js";
+import type {
+  TokensPerHour,
+  RequestsPerPeriod,
+} from "@llm-proxy/shared/schemas";
+import { useApi } from "../composables/useApi";
+import LoadingSpinner from "../components/LoadingSpinner.vue";
+import EmptyState from "../components/EmptyState.vue";
 
 ChartJS.register(
   CategoryScale,
@@ -33,14 +36,17 @@ const api = useApi();
 const { t } = useI18n();
 
 // Reactive dark mode detection
-const isDarkMode = ref(document.documentElement.classList.contains('dark'));
+const isDarkMode = ref(document.documentElement.classList.contains("dark"));
 let themeObserver: MutationObserver | null = null;
 
 onMounted(() => {
   themeObserver = new MutationObserver(() => {
-    isDarkMode.value = document.documentElement.classList.contains('dark');
+    isDarkMode.value = document.documentElement.classList.contains("dark");
   });
-  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
 });
 
 onUnmounted(() => {
@@ -56,26 +62,26 @@ interface AuthTab {
 }
 
 const authTabs = ref<AuthTab[]>([]);
-const activeAuthKey = ref('');
+const activeAuthKey = ref("");
 
 // === Time range ===
-type TimeRange = '24h' | '7d' | '30d';
-const activeRange = ref<TimeRange>('24h');
+type TimeRange = "24h" | "7d" | "30d";
+const activeRange = ref<TimeRange>("24h");
 
 const rangeOptions = computed(() => [
-  { value: '24h' as TimeRange, label: t('stats.last24h') },
-  { value: '7d' as TimeRange, label: t('stats.last7d') },
-  { value: '30d' as TimeRange, label: t('stats.last30d') },
+  { value: "24h" as TimeRange, label: t("stats.last24h") },
+  { value: "7d" as TimeRange, label: t("stats.last7d") },
+  { value: "30d" as TimeRange, label: t("stats.last30d") },
 ]);
 
-function rangeToGranularity(range: TimeRange): 'hour' | 'day' | 'month' {
-  if (range === '24h') return 'hour';
-  return 'day';
+function rangeToGranularity(range: TimeRange): "hour" | "day" | "month" {
+  if (range === "24h") return "hour";
+  return "day";
 }
 
 function rangeToHours(range: TimeRange): number {
-  if (range === '24h') return 24;
-  if (range === '7d') return 168;
+  if (range === "24h") return 24;
+  if (range === "7d") return 168;
   return 720;
 }
 
@@ -102,8 +108,8 @@ const chartLabels = computed(() => {
   );
   return sorted.map((b) => {
     const d = new Date(b.timestamp);
-    if (activeRange.value === '24h') {
-      return `${d.getHours().toString().padStart(2, '0')}:00`;
+    if (activeRange.value === "24h") {
+      return `${d.getHours().toString().padStart(2, "0")}:00`;
     }
     return `${d.getMonth() + 1}/${d.getDate()}`;
   });
@@ -111,19 +117,28 @@ const chartLabels = computed(() => {
 
 const inputTokens = computed(() => {
   return [...activeTokenStats.value]
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    )
     .map((b) => b.input_tokens);
 });
 
 const outputTokens = computed(() => {
   return [...activeTokenStats.value]
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    )
     .map((b) => b.output_tokens);
 });
 
 const cacheTokens = computed(() => {
   return [...activeTokenStats.value]
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    )
     .map((b) => b.cache_tokens);
 });
 
@@ -131,10 +146,10 @@ const chartData = computed(() => ({
   labels: chartLabels.value,
   datasets: [
     {
-      label: t('stats.inputTokens'),
+      label: t("stats.inputTokens"),
       data: inputTokens.value,
-      borderColor: '#6366f1',
-      backgroundColor: 'rgba(99, 102, 241, 0.1)',
+      borderColor: "#6366f1",
+      backgroundColor: "rgba(99, 102, 241, 0.1)",
       borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
@@ -142,10 +157,10 @@ const chartData = computed(() => ({
       fill: false,
     },
     {
-      label: t('stats.outputTokens'),
+      label: t("stats.outputTokens"),
       data: outputTokens.value,
-      borderColor: '#22c55e',
-      backgroundColor: 'rgba(34, 197, 94, 0.1)',
+      borderColor: "#22c55e",
+      backgroundColor: "rgba(34, 197, 94, 0.1)",
       borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
@@ -153,10 +168,10 @@ const chartData = computed(() => ({
       fill: false,
     },
     {
-      label: t('stats.cacheTokens'),
+      label: t("stats.cacheTokens"),
       data: cacheTokens.value,
-      borderColor: '#f59e0b',
-      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+      borderColor: "#f59e0b",
+      backgroundColor: "rgba(245, 158, 11, 0.1)",
       borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
@@ -173,17 +188,19 @@ const chartOptions = computed(() => ({
   aspectRatio: 2.5,
   interaction: {
     intersect: false,
-    mode: 'index' as const,
+    mode: "index" as const,
   },
   plugins: {
     legend: {
       display: false, // We have custom legend
     },
     tooltip: {
-      backgroundColor: isDarkMode.value ? 'rgba(55, 65, 81, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-      titleColor: isDarkMode.value ? '#f3f4f6' : '#1f2937',
-      bodyColor: isDarkMode.value ? '#d1d5db' : '#6b7280',
-      borderColor: isDarkMode.value ? '#4b5563' : '#e5e7eb',
+      backgroundColor: isDarkMode.value
+        ? "rgba(55, 65, 81, 0.95)"
+        : "rgba(255, 255, 255, 0.95)",
+      titleColor: isDarkMode.value ? "#f3f4f6" : "#1f2937",
+      bodyColor: isDarkMode.value ? "#d1d5db" : "#6b7280",
+      borderColor: isDarkMode.value ? "#4b5563" : "#e5e7eb",
       borderWidth: 1,
       padding: 10,
       cornerRadius: 8,
@@ -192,11 +209,12 @@ const chartOptions = computed(() => ({
         label: (ctx: any) => {
           const val = ctx.raw;
           const label = ctx.dataset.label;
-          const formatted = val >= 1_000_000
-            ? `${(val / 1_000_000).toFixed(1)}M`
-            : val >= 1_000
-              ? `${(val / 1_000).toFixed(1)}K`
-              : val.toLocaleString();
+          const formatted =
+            val >= 1_000_000
+              ? `${(val / 1_000_000).toFixed(1)}M`
+              : val >= 1_000
+                ? `${(val / 1_000).toFixed(1)}K`
+                : val.toLocaleString();
           return `${label}: ${formatted}`;
         },
       },
@@ -206,10 +224,10 @@ const chartOptions = computed(() => ({
     x: {
       grid: {
         display: true,
-        color: isDarkMode.value ? '#374151' : 'rgba(0,0,0,0.06)',
+        color: isDarkMode.value ? "#374151" : "rgba(0,0,0,0.06)",
       },
       ticks: {
-        color: '#9ca3af',
+        color: "#9ca3af",
         font: { size: 11 },
         maxRotation: chartLabels.value.length > 12 ? 30 : 0,
         autoSkip: true,
@@ -219,10 +237,10 @@ const chartOptions = computed(() => ({
     y: {
       beginAtZero: true,
       grid: {
-        color: isDarkMode.value ? '#374151' : 'rgba(0,0,0,0.06)',
+        color: isDarkMode.value ? "#374151" : "rgba(0,0,0,0.06)",
       },
       ticks: {
-        color: '#9ca3af',
+        color: "#9ca3af",
         font: { size: 11 },
         callback: (val: any) => {
           const n = val as number;
@@ -237,9 +255,9 @@ const chartOptions = computed(() => ({
 
 // === Request data (weighted counts) ===
 const weightedPeriodLabels = computed(() => ({
-  '5h': t('stats.last24h'),
-  week: t('stats.last7d'),
-  month: t('stats.last30d'),
+  "5h": t("stats.last24h"),
+  week: t("stats.last7d"),
+  month: t("stats.last30d"),
 }));
 const requestWeightedData = computed(() => {
   const auth = activeAuthKey.value;
@@ -253,15 +271,22 @@ const requestWeightedData = computed(() => {
 
 // === Fetch ===
 async function fetchProviders() {
-  const provRes = await api.get<{ data: Array<{ id: string; name: string; auths: Array<{ key: string; name?: string }> }> }>('/api/providers');
+  const provRes = await api.get<{
+    data: Array<{
+      id: string;
+      name: string;
+      auths: Array<{ key: string; name?: string }>;
+    }>;
+  }>("/api/providers");
   if (provRes.success) {
     const providers = provRes.data.data ?? provRes.data;
     const tabs: AuthTab[] = [];
     for (const p of providers) {
       for (const a of p.auths ?? []) {
-        const dk = a.key.length > 10
-          ? a.key.substring(0, 6) + '...' + a.key.substring(a.key.length - 4)
-          : a.key;
+        const dk =
+          a.key.length > 10
+            ? a.key.substring(0, 6) + "..." + a.key.substring(a.key.length - 4)
+            : a.key;
         tabs.push({
           key: a.key,
           displayKey: dk,
@@ -283,7 +308,9 @@ async function fetchStats() {
 
   const [reqRes, tokRes] = await Promise.all([
     api.get<RequestsPerPeriod[]>(`/api/stats/requests`),
-    api.get<TokensPerHour[]>(`/api/stats/tokens?granularity=${gran}&hours=${hours}`),
+    api.get<TokensPerHour[]>(
+      `/api/stats/tokens?granularity=${gran}&hours=${hours}`,
+    ),
   ]);
 
   if (reqRes.success) {

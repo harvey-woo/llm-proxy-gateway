@@ -11,11 +11,7 @@ router.route("/:id/auths", authsRouter);
 
 // GET /api/providers - List all providers with pagination
 router.get("/", (c) => {
-  const {
-    page = 1,
-    page_size = 20,
-    enabled,
-  } = c.req.query();
+  const { page = 1, page_size = 20, enabled } = c.req.query();
 
   let items = Array.from(providersStore.values());
 
@@ -42,13 +38,18 @@ router.get("/:id", (c) => {
   const id = c.req.param("id");
   const item = providersStore.get(id);
   if (!item) {
-    return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    return c.json(
+      { success: false, error: "Provider not found", code: "NOT_FOUND" },
+      404,
+    );
   }
   return c.json({ success: true, data: item });
 });
 
 // Helper: resolve model aliases — auto-create/associate when alias is empty
-function resolveModelAliases(models: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+function resolveModelAliases(
+  models: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
   return models.map((m) => {
     const modelName = m.name as string;
     const alias = (m.alias as string) ?? "";
@@ -84,15 +85,26 @@ function resolveModelAliases(models: Array<Record<string, unknown>>): Array<Reco
 
 // POST /api/providers - Create a provider
 router.post("/", async (c) => {
-  const body = (await c.req.json()) as CreateProvider & { auths?: Array<{ key: string; name?: string }> };
+  const body = (await c.req.json()) as CreateProvider & {
+    auths?: Array<{ key: string; name?: string }>;
+  };
 
   if (providersStore.has(body.id)) {
-    return c.json({ success: false, error: "Provider already exists", code: "DUPLICATE_ID" }, 409);
+    return c.json(
+      {
+        success: false,
+        error: "Provider already exists",
+        code: "DUPLICATE_ID",
+      },
+      409,
+    );
   }
 
   // Resolve empty aliases: auto-create or associate
   if (body.models) {
-    body.models = resolveModelAliases(body.models as Array<Record<string, unknown>>) as typeof body.models;
+    body.models = resolveModelAliases(
+      body.models as Array<Record<string, unknown>>,
+    ) as typeof body.models;
   }
 
   const now = new Date().toISOString();
@@ -128,20 +140,34 @@ router.patch("/:id", async (c) => {
   const id = c.req.param("id");
   const existing = providersStore.get(id);
   if (!existing) {
-    return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    return c.json(
+      { success: false, error: "Provider not found", code: "NOT_FOUND" },
+      404,
+    );
   }
 
-  const body = (await c.req.json()) as UpdateProvider & { auths?: Array<{ key: string; name?: string }> };
+  const body = (await c.req.json()) as UpdateProvider & {
+    auths?: Array<{ key: string; name?: string }>;
+  };
 
   // Resolve empty aliases: auto-create or associate
   if (body.models) {
-    body.models = resolveModelAliases(body.models as Array<Record<string, unknown>>) as typeof body.models;
+    body.models = resolveModelAliases(
+      body.models as Array<Record<string, unknown>>,
+    ) as typeof body.models;
   }
 
   // Check duplicate id if changing
   if (body.id && body.id !== existing.id) {
     if (providersStore.has(body.id)) {
-      return c.json({ success: false, error: "Provider already exists", code: "DUPLICATE_ID" }, 409);
+      return c.json(
+        {
+          success: false,
+          error: "Provider already exists",
+          code: "DUPLICATE_ID",
+        },
+        409,
+      );
     }
   }
 
@@ -183,7 +209,10 @@ router.patch("/:id", async (c) => {
 router.delete("/:id", (c) => {
   const id = c.req.param("id");
   if (!providersStore.has(id)) {
-    return c.json({ success: false, error: "Provider not found", code: "NOT_FOUND" }, 404);
+    return c.json(
+      { success: false, error: "Provider not found", code: "NOT_FOUND" },
+      404,
+    );
   }
   providersStore.delete(id);
   return c.json({ success: true });

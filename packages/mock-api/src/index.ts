@@ -19,7 +19,13 @@ app.use("/api/*", mockDelay);
 app.use("/v1/*", mockDelay);
 
 // Health check (no delay)
-app.get("/health", (c) => c.json({ status: "healthy", uptime_seconds: process.uptime(), version: "0.1.0-mock" }));
+app.get("/health", (c) =>
+  c.json({
+    status: "healthy",
+    uptime_seconds: process.uptime(),
+    version: "0.1.0-mock",
+  }),
+);
 
 // API routes
 app.route("/api/models", modelsRouter);

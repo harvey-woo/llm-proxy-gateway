@@ -59,24 +59,26 @@ const deletingModel = ref<ModelAlias | null>(null);
 
 // Strategy options
 const strategyOptions = [
-  { value: "proportional", label: t('models.strategyProportionalLabel') },
-  { value: "priority", label: t('models.strategyPriorityLabel') },
-  { value: "round_robin", label: t('models.strategyRoundRobinLabel') },
-  { value: "random", label: t('models.strategyRandomLabel') },
-  { value: "least_loaded", label: t('models.strategyLeastLoadedLabel') },
-  { value: "health_first", label: t('models.strategyHealthFirstLabel') },
+  { value: "proportional", label: t("models.strategyProportionalLabel") },
+  { value: "priority", label: t("models.strategyPriorityLabel") },
+  { value: "round_robin", label: t("models.strategyRoundRobinLabel") },
+  { value: "random", label: t("models.strategyRandomLabel") },
+  { value: "least_loaded", label: t("models.strategyLeastLoadedLabel") },
+  { value: "health_first", label: t("models.strategyHealthFirstLabel") },
 ];
 
 const strategyDescriptions: Record<string, string> = {
-  proportional: t('models.strategyProportional'),
-  priority: t('models.strategyPriority'),
-  round_robin: t('models.strategyRoundRobin'),
-  random: t('models.strategyRandom'),
-  least_loaded: t('models.strategyLeastLoaded'),
-  health_first: t('models.strategyHealthFirst'),
+  proportional: t("models.strategyProportional"),
+  priority: t("models.strategyPriority"),
+  round_robin: t("models.strategyRoundRobin"),
+  random: t("models.strategyRandom"),
+  least_loaded: t("models.strategyLeastLoaded"),
+  health_first: t("models.strategyHealthFirst"),
 };
 
-const selectedStrategyDesc = computed(() => strategyDescriptions[formStrategy.value] || "");
+const selectedStrategyDesc = computed(
+  () => strategyDescriptions[formStrategy.value] || "",
+);
 
 // Form state
 const formAlias = ref("");
@@ -100,12 +102,12 @@ function getProviderModels(providerId: string): string[] {
 
 // Selected provider IDs (from providerSelections)
 const selectedProviderIds = computed(() =>
-  providerSelections.value.map((s) => s.providerId)
+  providerSelections.value.map((s) => s.providerId),
 );
 
 // Available providers (those not already selected)
 const availableProviders = computed(() =>
-  providers.value.filter((p) => !selectedProviderIds.value.includes(p.id))
+  providers.value.filter((p) => !selectedProviderIds.value.includes(p.id)),
 );
 
 // Flattened list of all selected model entries for summary display
@@ -223,12 +225,12 @@ function buildModelEntries(): ModelAliasEntry[] {
 
 async function handleCreate() {
   if (!formAlias.value.trim()) {
-    toast.error(t('models.aliasRequired'));
+    toast.error(t("models.aliasRequired"));
     return;
   }
   const entries = buildModelEntries();
   if (entries.length === 0) {
-    toast.error(t('models.selectRequired'));
+    toast.error(t("models.selectRequired"));
     return;
   }
   const body: Record<string, unknown> = {
@@ -248,24 +250,25 @@ async function handleCreate() {
       body.headers = parsed;
     }
   } catch {
-    toast.error(t('errors.jsonFormat'));
+    toast.error(t("errors.jsonFormat"));
     return;
   }
   const res = await api.post<ModelAlias>("/api/models", body);
   if (res.success) {
-    toast.success(t('models.createSuccess'));
+    toast.success(t("models.createSuccess"));
     showCreateModal.value = false;
     resetForm();
     await fetchModels();
   } else {
-    toast.error(res.error ?? t('models.createFailed'));
+    toast.error(res.error ?? t("models.createFailed"));
   }
 }
 
 async function handleUpdate() {
   if (!editingModel.value) return;
   const body: Record<string, unknown> = {};
-  if (formAlias.value !== editingModel.value.alias) body.alias = formAlias.value.trim();
+  if (formAlias.value !== editingModel.value.alias)
+    body.alias = formAlias.value.trim();
   body.strategy = formStrategy.value;
   body.queue_timeout = formQueueTimeout.value;
   body.models = buildModelEntries();
@@ -281,19 +284,22 @@ async function handleUpdate() {
       body.headers = parsed;
     }
   } catch {
-    toast.error(t('errors.jsonFormat'));
+    toast.error(t("errors.jsonFormat"));
     return;
   }
 
-  const res = await api.patch<ModelAlias>(`/api/models/${editingModel.value.id}`, body);
+  const res = await api.patch<ModelAlias>(
+    `/api/models/${editingModel.value.id}`,
+    body,
+  );
   if (res.success) {
-    toast.success(t('models.updateSuccess'));
+    toast.success(t("models.updateSuccess"));
     showEditModal.value = false;
     editingModel.value = null;
     resetForm();
     await fetchModels();
   } else {
-    toast.error(res.error ?? t('models.updateFailed'));
+    toast.error(res.error ?? t("models.updateFailed"));
   }
 }
 
@@ -301,12 +307,12 @@ async function handleDelete() {
   if (!deletingModel.value) return;
   const res = await api.remove(`/api/models/${deletingModel.value.id}`);
   if (res.success) {
-    toast.success(t('models.deleteSuccess'));
+    toast.success(t("models.deleteSuccess"));
     showDeleteDialog.value = false;
     deletingModel.value = null;
     await fetchModels();
   } else {
-    toast.error(res.error ?? t('models.deleteFailed'));
+    toast.error(res.error ?? t("models.deleteFailed"));
   }
 }
 

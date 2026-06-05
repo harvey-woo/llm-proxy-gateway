@@ -7,7 +7,9 @@ import i18n from "../src/locales/index.js";
 
 const router = createRouter({
   history: createWebHistory(),
-  routes: [{ path: "/", component: { template: "<div>LLM Proxy Gateway</div>" } }],
+  routes: [
+    { path: "/", component: { template: "<div>LLM Proxy Gateway</div>" } },
+  ],
 });
 
 describe("App.vue", () => {

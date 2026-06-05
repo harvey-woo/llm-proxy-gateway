@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { useExchangeRates } from "../composables/useExchangeRates";
 
-const {
-  preferredCurrency,
-  supportedCurrencies,
-  setCurrency,
-} = useExchangeRates();
+const { preferredCurrency, supportedCurrencies, setCurrency } =
+  useExchangeRates();
 
 function handleChange(event: Event) {
   const target = event.target as HTMLSelectElement;

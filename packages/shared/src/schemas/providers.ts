@@ -26,6 +26,7 @@ export const RateLimitPeriodSchema = z.enum([
   "day",
   "5h",
   "week",
+  "30d",
   "month",
 ]);
 
@@ -41,7 +42,9 @@ export const WeightedRequestRateLimitSchema = z.object({
   period: RateLimitPeriodSchema,
 });
 
-export type WeightedRequestRateLimit = z.infer<typeof WeightedRequestRateLimitSchema>;
+export type WeightedRequestRateLimit = z.infer<
+  typeof WeightedRequestRateLimitSchema
+>;
 
 /**
  * Concurrency-based rate limit: max N concurrent requests
@@ -93,7 +96,11 @@ export type PricingModel = z.infer<typeof PricingModelSchema>;
 /**
  * Subscription pricing configuration
  */
-export const SubscriptionBillingTypeSchema = z.enum(["unlimited", "weighted_requests", "tokens"]);
+export const SubscriptionBillingTypeSchema = z.enum([
+  "unlimited",
+  "weighted_requests",
+  "tokens",
+]);
 
 export const SubscriptionConfigSchema = z.object({
   price: z.number().positive("Subscription price must be positive"),
@@ -145,9 +152,7 @@ export const ProviderSchema = z.object({
     ),
   name: z.string().min(1, "Provider name cannot be empty").max(128),
   base_url: z.string().url("Base URL must be a valid URL"),
-  models: z
-    .array(ProviderModelSchema)
-    .min(1, "At least one model is required"),
+  models: z.array(ProviderModelSchema).min(1, "At least one model is required"),
   auths: z.array(AuthSchema).default([]),
   rate_limits: z.array(RateLimitSchema).default([]),
   request_timeout_ms: z.number().int().min(0).default(60000),

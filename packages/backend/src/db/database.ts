@@ -49,7 +49,7 @@ export interface ProviderAuth {
   provider_id: string;
   key: string;
   name: string | null;
-  auth_type: string;       // "api_key" | "oauth" — defaults to "api_key"
+  auth_type: string; // "api_key" | "oauth" — defaults to "api_key"
   metadata: string | null; // JSON string for OAuth tokens
   created_at: string;
   updated_at: string;
@@ -89,7 +89,9 @@ async function createKyselyDb(dbPath?: string): Promise<Kysely<Database>> {
 export async function getDb(dbPath?: string): Promise<Kysely<Database>> {
   if (!_dbPromise) {
     _dbPromise = createKyselyDb(dbPath).then((db) => {
-      void initDb().catch((err) => console.error("[db] auto-init failed:", err));
+      void initDb().catch((err) =>
+        console.error("[db] auto-init failed:", err),
+      );
       return db;
     });
   }
@@ -113,8 +115,12 @@ export async function initDb(dbPath?: string): Promise<void> {
     .addColumn("input_tokens", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("output_tokens", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("cache_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("cache_hit_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("cache_create_tokens", "integer", (col) => col.notNull().defaultTo(0))
+    .addColumn("cache_hit_tokens", "integer", (col) =>
+      col.notNull().defaultTo(0),
+    )
+    .addColumn("cache_create_tokens", "integer", (col) =>
+      col.notNull().defaultTo(0),
+    )
     .addColumn("total_tokens", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("latency_ms", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("error_message", "text")
@@ -131,10 +137,13 @@ export async function initDb(dbPath?: string): Promise<void> {
   // Migration: add cache_hit_tokens and cache_create_tokens if missing
   for (const col of ["cache_hit_tokens", "cache_create_tokens"]) {
     try {
-      await db.schema.alterTable("request_logs")
+      await db.schema
+        .alterTable("request_logs")
         .addColumn(col, "integer", (c) => c.notNull().defaultTo(0))
         .execute();
-    } catch { /* already exists */ }
+    } catch {
+      /* already exists */
+    }
   }
 
   await db.schema
@@ -191,14 +200,18 @@ export async function initDb(dbPath?: string): Promise<void> {
         .alterTable("provider_auths")
         .addColumn(col, "text", (c) => c.notNull().defaultTo("api_key"))
         .execute();
-    } catch { /* already exists */ }
+    } catch {
+      /* already exists */
+    }
   }
   try {
     await db.schema
       .alterTable("provider_auths")
       .addColumn("metadata", "text")
       .execute();
-  } catch { /* already exists */ }
+  } catch {
+    /* already exists */
+  }
 
   await db.schema
     .createTable("stats_aggregates")
@@ -212,7 +225,9 @@ export async function initDb(dbPath?: string): Promise<void> {
     .addColumn("request_count", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("success_count", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("error_count", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("rate_limited_count", "integer", (col) => col.notNull().defaultTo(0))
+    .addColumn("rate_limited_count", "integer", (col) =>
+      col.notNull().defaultTo(0),
+    )
     .addColumn("input_tokens", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("output_tokens", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("cache_tokens", "integer", (col) => col.notNull().defaultTo(0))

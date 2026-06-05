@@ -1,11 +1,9 @@
 import { Hono } from "hono";
-import {
-  providersStore,
-} from "../store.js";
+import { providersStore } from "../store.js";
 
 const router = new Hono();
 
-  // Collect all auths across all providers
+// Collect all auths across all providers
 interface CollectedAuth {
   provider_id: string;
   provider_name: string;
@@ -14,7 +12,14 @@ interface CollectedAuth {
   total_requests: number;
   is_rate_limited: boolean;
   limited_by?: string;
-  limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }>;
+  limits: Array<{
+    type: string;
+    period?: string;
+    used: number;
+    max: number;
+    remaining: number;
+    usage_pct: number;
+  }>;
 }
 
 function collectAllAuths(): CollectedAuth[] {
@@ -22,14 +27,25 @@ function collectAllAuths(): CollectedAuth[] {
 
   for (const [providerId, provider] of providersStore.entries()) {
     const rateLimits = provider.rate_limits ?? [];
-    for (const auth of (provider.auths ?? [])) {
+    for (const auth of provider.auths ?? []) {
       // Compute limits for each rate limit rule
       const limits = rateLimits.map((rl) => {
-        const factor = rl.type === "weighted_requests"
-          ? auth.name === "Admin Key" ? 0.8 : auth.name === "Developer Team Key" ? 0.5 : auth.name === "Rate Limit Test Key" ? 1.0 : 0.3
-          : rl.type === "tokens" ? 0.6
-          : rl.type === "concurrency" ? auth.is_rate_limited ? 1.0 : 0.4
-          : 0.5;
+        const factor =
+          rl.type === "weighted_requests"
+            ? auth.name === "Admin Key"
+              ? 0.8
+              : auth.name === "Developer Team Key"
+                ? 0.5
+                : auth.name === "Rate Limit Test Key"
+                  ? 1.0
+                  : 0.3
+            : rl.type === "tokens"
+              ? 0.6
+              : rl.type === "concurrency"
+                ? auth.is_rate_limited
+                  ? 1.0
+                  : 0.4
+                : 0.5;
         const max = rl.max;
         const used = Math.round(max * factor);
         const remaining = Math.max(0, max - used);
@@ -67,7 +83,10 @@ function collectAllAuths(): CollectedAuth[] {
 function getAvgWeight(providerId: string): number {
   const provider = providersStore.get(providerId);
   if (!provider || !provider.models || provider.models.length === 0) return 1;
-  const totalWeight = provider.models.reduce((sum, m) => sum + (m.weight ?? 1), 0);
+  const totalWeight = provider.models.reduce(
+    (sum, m) => sum + (m.weight ?? 1),
+    0,
+  );
   return totalWeight / provider.models.length;
 }
 
@@ -116,8 +135,14 @@ router.get("/requests", (c) => {
   const data = periods.flatMap((period) => {
     return allAuths.map((auth) => ({
       period,
-      count: Math.floor(auth.total_requests / (period === "5h" ? 30 : period === "week" ? 4 : 1)),
-      auth_key: auth.key.substring(0, 6) + "..." + auth.key.substring(auth.key.length - 4),
+      count: Math.floor(
+        auth.total_requests /
+          (period === "5h" ? 30 : period === "week" ? 4 : 1),
+      ),
+      auth_key:
+        auth.key.substring(0, 6) +
+        "..." +
+        auth.key.substring(auth.key.length - 4),
       auth_name: auth.name,
     }));
   });
@@ -139,7 +164,10 @@ router.get("/tokens", (c) => {
       const inputTokens = Math.floor(totalTokens * 0.3);
       buckets.push({
         timestamp: bucketTime.toISOString(),
-        auth_key: auth.key.substring(0, 6) + "..." + auth.key.substring(auth.key.length - 4),
+        auth_key:
+          auth.key.substring(0, 6) +
+          "..." +
+          auth.key.substring(auth.key.length - 4),
         auth_name: auth.name,
         input_tokens: inputTokens,
         output_tokens: totalTokens - inputTokens,
@@ -157,9 +185,18 @@ router.get("/dashboard", (c) => {
   const allAuths = collectAllAuths();
 
   // Group providers by pricing model
-  const weightedProviders = new Map<string, { id: string; name: string; unitPrice: number; currency: string }>();
-  const tokenProviders = new Map<string, { id: string; name: string; currency: string }>();
-  const subscriptionProviders = new Map<string, { id: string; name: string; subscription: any; currency: string }>();
+  const weightedProviders = new Map<
+    string,
+    { id: string; name: string; unitPrice: number; currency: string }
+  >();
+  const tokenProviders = new Map<
+    string,
+    { id: string; name: string; currency: string }
+  >();
+  const subscriptionProviders = new Map<
+    string,
+    { id: string; name: string; subscription: any; currency: string }
+  >();
 
   for (const [providerId, provider] of providersStore.entries()) {
     switch (provider.pricing_model) {
@@ -197,7 +234,18 @@ router.get("/dashboard", (c) => {
     unit_price: number;
     rate_limited: number;
     currency: string;
-    auths: Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }>;
+    auths: Array<{
+      auth_key: string;
+      auth_name?: string;
+      limits: Array<{
+        type: string;
+        period?: string;
+        used: number;
+        max: number;
+        remaining: number;
+        usage_pct: number;
+      }>;
+    }>;
   }> = [];
 
   const perModelTokenRows: Array<{
@@ -207,7 +255,18 @@ router.get("/dashboard", (c) => {
     avg_price_per_m: number;
     rate_limited: number;
     currency: string;
-    auths: Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }>;
+    auths: Array<{
+      auth_key: string;
+      auth_name?: string;
+      limits: Array<{
+        type: string;
+        period?: string;
+        used: number;
+        max: number;
+        remaining: number;
+        usage_pct: number;
+      }>;
+    }>;
   }> = [];
 
   const subscriptionRows: Array<{
@@ -218,7 +277,18 @@ router.get("/dashboard", (c) => {
     period: string;
     overage_cost: number;
     currency: string;
-    auths: Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }>;
+    auths: Array<{
+      auth_key: string;
+      auth_name?: string;
+      limits: Array<{
+        type: string;
+        period?: string;
+        used: number;
+        max: number;
+        remaining: number;
+        usage_pct: number;
+      }>;
+    }>;
   }> = [];
 
   const rateLimitedAuths: Array<{
@@ -229,7 +299,15 @@ router.get("/dashboard", (c) => {
   }> = [];
 
   // Aggregate by provider
-  const providerTotals = new Map<string, { weightedRequests: number; cost: number; rateLimited: number; rawRequests: number }>();
+  const providerTotals = new Map<
+    string,
+    {
+      weightedRequests: number;
+      cost: number;
+      rateLimited: number;
+      rawRequests: number;
+    }
+  >();
 
   for (const auth of allAuths) {
     const avgWeight = getAvgWeight(auth.provider_id);
@@ -264,13 +342,30 @@ router.get("/dashboard", (c) => {
   }
 
   // Build provider->auths map with limits for expandable rows
-  const providerAuthsMap = new Map<string, Array<{ auth_key: string; auth_name?: string; limits: Array<{ type: string; period?: string; used: number; max: number; remaining: number; usage_pct: number }> }>>();
+  const providerAuthsMap = new Map<
+    string,
+    Array<{
+      auth_key: string;
+      auth_name?: string;
+      limits: Array<{
+        type: string;
+        period?: string;
+        used: number;
+        max: number;
+        remaining: number;
+        usage_pct: number;
+      }>;
+    }>
+  >();
   for (const auth of allAuths) {
     if (!providerAuthsMap.has(auth.provider_id)) {
       providerAuthsMap.set(auth.provider_id, []);
     }
     providerAuthsMap.get(auth.provider_id)!.push({
-      auth_key: auth.key.substring(0, 6) + "..." + auth.key.substring(auth.key.length - 4),
+      auth_key:
+        auth.key.substring(0, 6) +
+        "..." +
+        auth.key.substring(auth.key.length - 4),
       auth_name: auth.name,
       limits: auth.limits,
     });
@@ -313,7 +408,8 @@ router.get("/dashboard", (c) => {
         provider_id: pinfo.id,
         tokens,
         cost: Number(pt.cost.toFixed(2)),
-        avg_price_per_m: tokens > 0 ? Number(((pt.cost / tokens) * 1_000_000).toFixed(2)) : 0,
+        avg_price_per_m:
+          tokens > 0 ? Number(((pt.cost / tokens) * 1_000_000).toFixed(2)) : 0,
         rate_limited: pt.rateLimited,
         currency: pinfo.currency,
         auths: providerAuthsMap.get(pinfo.id) ?? [],
@@ -345,19 +441,43 @@ router.get("/dashboard", (c) => {
   }
 
   // Calculate totals
-  const totalPerRequestWeightedRequests = perRequestWeightedRows.reduce((s, r) => s + r.weighted_requests, 0);
-  const totalPerRequestWeightedCost = Number(perRequestWeightedRows.reduce((s, r) => s + r.cost, 0).toFixed(2));
-  const totalPerRequestWeightedRateLimited = perRequestWeightedRows.reduce((s, r) => s + r.rate_limited, 0);
+  const totalPerRequestWeightedRequests = perRequestWeightedRows.reduce(
+    (s, r) => s + r.weighted_requests,
+    0,
+  );
+  const totalPerRequestWeightedCost = Number(
+    perRequestWeightedRows.reduce((s, r) => s + r.cost, 0).toFixed(2),
+  );
+  const totalPerRequestWeightedRateLimited = perRequestWeightedRows.reduce(
+    (s, r) => s + r.rate_limited,
+    0,
+  );
 
-  const totalPerModelTokenTokens = perModelTokenRows.reduce((s, r) => s + r.tokens, 0);
-  const totalPerModelTokenCost = Number(perModelTokenRows.reduce((s, r) => s + r.cost, 0).toFixed(2));
-  const totalPerModelTokenRateLimited = perModelTokenRows.reduce((s, r) => s + r.rate_limited, 0);
+  const totalPerModelTokenTokens = perModelTokenRows.reduce(
+    (s, r) => s + r.tokens,
+    0,
+  );
+  const totalPerModelTokenCost = Number(
+    perModelTokenRows.reduce((s, r) => s + r.cost, 0).toFixed(2),
+  );
+  const totalPerModelTokenRateLimited = perModelTokenRows.reduce(
+    (s, r) => s + r.rate_limited,
+    0,
+  );
 
-  const totalSubscriptionCost = Number(subscriptionRows.reduce((s, r) => s + r.cost, 0).toFixed(2));
-  const totalSubscriptionRateLimited = subscriptionRows.reduce((s, r) => s + r.rate_limited, 0);
+  const totalSubscriptionCost = Number(
+    subscriptionRows.reduce((s, r) => s + r.cost, 0).toFixed(2),
+  );
+  const totalSubscriptionRateLimited = subscriptionRows.reduce(
+    (s, r) => s + r.rate_limited,
+    0,
+  );
 
   // Total across all sections
-  const totalCost = totalPerRequestWeightedCost + totalPerModelTokenCost + totalSubscriptionCost;
+  const totalCost =
+    totalPerRequestWeightedCost +
+    totalPerModelTokenCost +
+    totalSubscriptionCost;
   const totalRequests = allAuths.reduce((s, a) => s + a.total_requests, 0);
   const totalRateLimited = rateLimitedAuths.length;
 

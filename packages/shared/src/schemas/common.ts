@@ -39,10 +39,7 @@ export function PaginatedResponseSchema<T extends z.ZodType>(item: T) {
  * API response that can be either success or error
  */
 export function ApiResponseSchema<T extends z.ZodType>(data: T) {
-  return z.union([
-    SuccessResponseSchema(data),
-    ErrorResponseSchema,
-  ]);
+  return z.union([SuccessResponseSchema(data), ErrorResponseSchema]);
 }
 
 /**

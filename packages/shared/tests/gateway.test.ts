@@ -515,9 +515,7 @@ describe("ChatCompletionResponseSchema", () => {
       object: "wrong.type",
       created: 1700000000,
       model: "gpt-4",
-      choices: [
-        { index: 0, message: { role: "assistant", content: "Hi" } },
-      ],
+      choices: [{ index: 0, message: { role: "assistant", content: "Hi" } }],
     });
     expect(result.success).toBe(false);
   });
@@ -528,9 +526,7 @@ describe("ChatCompletionResponseSchema", () => {
       object: "chat.completion",
       created: -1,
       model: "gpt-4",
-      choices: [
-        { index: 0, message: { role: "assistant", content: "Hi" } },
-      ],
+      choices: [{ index: 0, message: { role: "assistant", content: "Hi" } }],
     });
     expect(result.success).toBe(false);
   });
@@ -622,7 +618,11 @@ describe("MessagesRequestSchema", () => {
       max_tokens: 1000,
       system: [
         { type: "text", text: "You are helpful" },
-        { type: "text", text: "Second block", cache_control: { type: "ephemeral" } },
+        {
+          type: "text",
+          text: "Second block",
+          cache_control: { type: "ephemeral" },
+        },
       ],
     });
     expect(result.success).toBe(true);
@@ -782,9 +782,7 @@ describe("ResponseInputItemSchema", () => {
     const result = ResponseInputItemSchema.safeParse({
       type: "message",
       role: "user",
-      content: [
-        { type: "input_text", text: "Hello" },
-      ],
+      content: [{ type: "input_text", text: "Hello" }],
     });
     expect(result.success).toBe(true);
   });
@@ -839,9 +837,7 @@ describe("ResponsesRequestSchema", () => {
   it("should parse with input array", () => {
     const result = ResponsesRequestSchema.safeParse({
       model: "gpt-4o",
-      input: [
-        { type: "message", role: "user", content: "Hello" },
-      ],
+      input: [{ type: "message", role: "user", content: "Hello" }],
     });
     expect(result.success).toBe(true);
   });
@@ -850,9 +846,7 @@ describe("ResponsesRequestSchema", () => {
     const result = ResponsesRequestSchema.safeParse({
       model: "gpt-4o",
       input: "Use the search tool",
-      tools: [
-        { type: "function", name: "search", parameters: {} },
-      ],
+      tools: [{ type: "function", name: "search", parameters: {} }],
       tool_choice: "required",
     });
     expect(result.success).toBe(true);
@@ -1020,7 +1014,11 @@ describe("GatewayErrorResponseSchema", () => {
 
 describe("ApiFormatSchema", () => {
   it("should accept valid formats", () => {
-    for (const fmt of ["openai_chat", "anthropic_messages", "openai_responses"]) {
+    for (const fmt of [
+      "openai_chat",
+      "anthropic_messages",
+      "openai_responses",
+    ]) {
       const result = ApiFormatSchema.safeParse(fmt);
       expect(result.success).toBe(true);
     }
@@ -1130,30 +1128,60 @@ describe("Cache token field extraction patterns", () => {
   //   const cacheCreateTokens = (usage as any)?.cache_creation_input_tokens ?? 0;
 
   it("extracts prompt_cache_hit_tokens from OpenAI-style usage", () => {
-    const usage = { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150, prompt_cache_hit_tokens: 30 };
-    const cacheHitTokens = (usage as any)?.prompt_cache_hit_tokens ?? (usage as any)?.cache_read_input_tokens ?? 0;
+    const usage = {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      total_tokens: 150,
+      prompt_cache_hit_tokens: 30,
+    };
+    const cacheHitTokens =
+      (usage as any)?.prompt_cache_hit_tokens ??
+      (usage as any)?.cache_read_input_tokens ??
+      0;
     const cacheCreateTokens = (usage as any)?.cache_creation_input_tokens ?? 0;
     expect(cacheHitTokens).toBe(30);
     expect(cacheCreateTokens).toBe(0);
   });
 
   it("extracts cache_read_input_tokens from Anthropic-style usage", () => {
-    const usage = { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 40, cache_creation_input_tokens: 20 };
-    const cacheHitTokens = (usage as any)?.prompt_cache_hit_tokens ?? (usage as any)?.cache_read_input_tokens ?? 0;
+    const usage = {
+      input_tokens: 100,
+      output_tokens: 50,
+      cache_read_input_tokens: 40,
+      cache_creation_input_tokens: 20,
+    };
+    const cacheHitTokens =
+      (usage as any)?.prompt_cache_hit_tokens ??
+      (usage as any)?.cache_read_input_tokens ??
+      0;
     const cacheCreateTokens = (usage as any)?.cache_creation_input_tokens ?? 0;
     expect(cacheHitTokens).toBe(40);
     expect(cacheCreateTokens).toBe(20);
   });
 
   it("prefers prompt_cache_hit_tokens over cache_read_input_tokens when both present", () => {
-    const usage = { prompt_cache_hit_tokens: 10, cache_read_input_tokens: 5, cache_creation_input_tokens: 3 };
-    const cacheHitTokens = (usage as any)?.prompt_cache_hit_tokens ?? (usage as any)?.cache_read_input_tokens ?? 0;
+    const usage = {
+      prompt_cache_hit_tokens: 10,
+      cache_read_input_tokens: 5,
+      cache_creation_input_tokens: 3,
+    };
+    const cacheHitTokens =
+      (usage as any)?.prompt_cache_hit_tokens ??
+      (usage as any)?.cache_read_input_tokens ??
+      0;
     expect(cacheHitTokens).toBe(10);
   });
 
   it("extracts cache_creation_input_tokens only from matching field", () => {
-    const usage = { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 };
-    const cacheHitTokens = (usage as any)?.prompt_cache_hit_tokens ?? (usage as any)?.cache_read_input_tokens ?? 0;
+    const usage = {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      total_tokens: 150,
+    };
+    const cacheHitTokens =
+      (usage as any)?.prompt_cache_hit_tokens ??
+      (usage as any)?.cache_read_input_tokens ??
+      0;
     const cacheCreateTokens = (usage as any)?.cache_creation_input_tokens ?? 0;
     expect(cacheHitTokens).toBe(0);
     expect(cacheCreateTokens).toBe(0);
@@ -1166,7 +1194,10 @@ describe("Cache token field extraction patterns", () => {
       cache_read_input_tokens: 75,
       cache_creation_input_tokens: 25,
     };
-    const cacheHitTokens = (usage as any)?.prompt_cache_hit_tokens ?? (usage as any)?.cache_read_input_tokens ?? 0;
+    const cacheHitTokens =
+      (usage as any)?.prompt_cache_hit_tokens ??
+      (usage as any)?.cache_read_input_tokens ??
+      0;
     const cacheCreateTokens = (usage as any)?.cache_creation_input_tokens ?? 0;
     expect(cacheHitTokens).toBe(75);
     expect(cacheCreateTokens).toBe(25);

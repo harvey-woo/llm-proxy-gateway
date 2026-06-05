@@ -46,11 +46,14 @@ router.put("/preferred", async (c) => {
   const currency = (body as { currency?: string }).currency;
 
   if (!currency || !MOCK_RATES[currency]) {
-    return c.json({
-      success: false,
-      error: `Unsupported currency: ${currency}`,
-      code: "INVALID_CURRENCY",
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: `Unsupported currency: ${currency}`,
+        code: "INVALID_CURRENCY",
+      },
+      400,
+    );
   }
 
   preferredCurrency = currency;

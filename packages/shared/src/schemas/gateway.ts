@@ -79,7 +79,12 @@ export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 /**
  * Chat message role
  */
-export const MessageRoleSchema = z.enum(["system", "user", "assistant", "tool"]);
+export const MessageRoleSchema = z.enum([
+  "system",
+  "user",
+  "assistant",
+  "tool",
+]);
 
 export type MessageRole = z.infer<typeof MessageRoleSchema>;
 
@@ -130,7 +135,9 @@ export type ChatMessage = z.infer<typeof ChatMessageSchema>;
  */
 export const ChatCompletionRequestSchema = z.object({
   model: z.string().min(1, "Model is required"),
-  messages: z.array(ChatMessageSchema).min(1, "At least one message is required"),
+  messages: z
+    .array(ChatMessageSchema)
+    .min(1, "At least one message is required"),
   temperature: z.number().min(0).max(2).optional(),
   top_p: z.number().min(0).max(1).optional(),
   n: z.number().int().min(1).max(128).optional(),
@@ -142,30 +149,38 @@ export const ChatCompletionRequestSchema = z.object({
   frequency_penalty: z.number().min(-2).max(2).optional(),
   logit_bias: z.record(z.string(), z.number()).optional(),
   user: z.string().optional(),
-  tools: z.array(
-    z.object({
-      type: z.literal("function"),
-      function: FunctionDefinitionSchema,
-    }),
-  ).optional(),
-  tool_choice: z.union([
-    z.literal("auto"),
-    z.literal("none"),
-    z.literal("required"),
-    z.object({
-      type: z.literal("function"),
-      function: z.object({ name: z.string() }),
-    }),
-  ]).optional(),
-  response_format: z.object({
-    type: z.enum(["text", "json_object", "json_schema"]),
-    json_schema: z.object({
-      name: z.string(),
-      description: z.string().optional(),
-      schema: z.record(z.string(), z.unknown()),
-      strict: z.boolean().optional(),
-    }).optional(),
-  }).optional(),
+  tools: z
+    .array(
+      z.object({
+        type: z.literal("function"),
+        function: FunctionDefinitionSchema,
+      }),
+    )
+    .optional(),
+  tool_choice: z
+    .union([
+      z.literal("auto"),
+      z.literal("none"),
+      z.literal("required"),
+      z.object({
+        type: z.literal("function"),
+        function: z.object({ name: z.string() }),
+      }),
+    ])
+    .optional(),
+  response_format: z
+    .object({
+      type: z.enum(["text", "json_object", "json_schema"]),
+      json_schema: z
+        .object({
+          name: z.string(),
+          description: z.string().optional(),
+          schema: z.record(z.string(), z.unknown()),
+          strict: z.boolean().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   seed: z.number().int().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
@@ -179,12 +194,16 @@ export const UsageSchema = z.object({
   prompt_tokens: z.number().int().min(0),
   completion_tokens: z.number().int().min(0),
   total_tokens: z.number().int().min(0),
-  prompt_tokens_details: z.object({
-    cached_tokens: z.number().int().min(0).optional(),
-  }).optional(),
-  completion_tokens_details: z.object({
-    reasoning_tokens: z.number().int().min(0).optional(),
-  }).optional(),
+  prompt_tokens_details: z
+    .object({
+      cached_tokens: z.number().int().min(0).optional(),
+    })
+    .optional(),
+  completion_tokens_details: z
+    .object({
+      reasoning_tokens: z.number().int().min(0).optional(),
+    })
+    .optional(),
 });
 
 export type Usage = z.infer<typeof UsageSchema>;
@@ -195,13 +214,9 @@ export type Usage = z.infer<typeof UsageSchema>;
 export const ChatCompletionChoiceSchema = z.object({
   index: z.number().int().min(0),
   message: ChatMessageSchema,
-  finish_reason: z.enum([
-    "stop",
-    "length",
-    "tool_calls",
-    "content_filter",
-    "function_call",
-  ]).optional(),
+  finish_reason: z
+    .enum(["stop", "length", "tool_calls", "content_filter", "function_call"])
+    .optional(),
 });
 
 export type ChatCompletionChoice = z.infer<typeof ChatCompletionChoiceSchema>;
@@ -219,7 +234,9 @@ export const ChatCompletionResponseSchema = z.object({
   system_fingerprint: z.string().optional(),
 });
 
-export type ChatCompletionResponse = z.infer<typeof ChatCompletionResponseSchema>;
+export type ChatCompletionResponse = z.infer<
+  typeof ChatCompletionResponseSchema
+>;
 
 /**
  * Streaming chunk for chat completions
@@ -237,12 +254,9 @@ export const ChatCompletionChunkSchema = z.object({
         content: z.string().nullable().optional(),
         tool_calls: z.array(ToolCallSchema).optional(),
       }),
-      finish_reason: z.enum([
-        "stop",
-        "length",
-        "tool_calls",
-        "content_filter",
-      ]).optional(),
+      finish_reason: z
+        .enum(["stop", "length", "tool_calls", "content_filter"])
+        .optional(),
     }),
   ),
   usage: UsageSchema.optional(),
@@ -270,43 +284,53 @@ export type AnthropicMessage = z.infer<typeof AnthropicMessageSchema>;
  */
 export const MessagesRequestSchema = z.object({
   model: z.string().min(1, "Model is required"),
-  messages: z.array(AnthropicMessageSchema).min(1, "At least one message is required"),
-  system: z.union([
-    z.string(),
-    z.array(
-      z.object({
-        type: z.literal("text"),
-        text: z.string(),
-        cache_control: z.object({ type: z.literal("ephemeral") }).optional(),
-      }),
-    ),
-  ]).optional(),
+  messages: z
+    .array(AnthropicMessageSchema)
+    .min(1, "At least one message is required"),
+  system: z
+    .union([
+      z.string(),
+      z.array(
+        z.object({
+          type: z.literal("text"),
+          text: z.string(),
+          cache_control: z.object({ type: z.literal("ephemeral") }).optional(),
+        }),
+      ),
+    ])
+    .optional(),
   max_tokens: z.number().int().positive("max_tokens must be positive"),
   temperature: z.number().min(0).max(1).optional(),
   top_p: z.number().min(0).max(1).optional(),
   top_k: z.number().int().positive().optional(),
   stop_sequences: z.array(z.string()).max(4).optional(),
   stream: z.boolean().default(false),
-  tools: z.array(
-    z.object({
-      name: z.string(),
-      description: z.string().optional(),
-      input_schema: z.record(z.string(), z.unknown()),
-      cache_control: z.object({ type: z.literal("ephemeral") }).optional(),
-    }),
-  ).optional(),
-  tool_choice: z.union([
-    z.literal("auto"),
-    z.literal("any"),
-    z.literal("tool"),
-    z.object({
-      type: z.literal("tool"),
-      name: z.string(),
-    }),
-  ]).optional(),
-  metadata: z.object({
-    user_id: z.string().optional(),
-  }).optional(),
+  tools: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string().optional(),
+        input_schema: z.record(z.string(), z.unknown()),
+        cache_control: z.object({ type: z.literal("ephemeral") }).optional(),
+      }),
+    )
+    .optional(),
+  tool_choice: z
+    .union([
+      z.literal("auto"),
+      z.literal("any"),
+      z.literal("tool"),
+      z.object({
+        type: z.literal("tool"),
+        name: z.string(),
+      }),
+    ])
+    .optional(),
+  metadata: z
+    .object({
+      user_id: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type MessagesRequest = z.infer<typeof MessagesRequestSchema>;
@@ -314,15 +338,18 @@ export type MessagesRequest = z.infer<typeof MessagesRequestSchema>;
 /**
  * Anthropic-style content block in response
  */
-export const AnthropicResponseContentBlockSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("text"), text: z.string() }),
-  z.object({
-    type: z.literal("tool_use"),
-    id: z.string(),
-    name: z.string(),
-    input: z.record(z.string(), z.unknown()),
-  }),
-]);
+export const AnthropicResponseContentBlockSchema = z.discriminatedUnion(
+  "type",
+  [
+    z.object({ type: z.literal("text"), text: z.string() }),
+    z.object({
+      type: z.literal("tool_use"),
+      id: z.string(),
+      name: z.string(),
+      input: z.record(z.string(), z.unknown()),
+    }),
+  ],
+);
 
 /**
  * Anthropic messages response (non-streaming)
@@ -333,7 +360,9 @@ export const MessagesResponseSchema = z.object({
   role: z.literal("assistant"),
   content: z.array(AnthropicResponseContentBlockSchema),
   model: z.string(),
-  stop_reason: z.enum(["end_turn", "max_tokens", "stop_sequence", "tool_use"]).optional(),
+  stop_reason: z
+    .enum(["end_turn", "max_tokens", "stop_sequence", "tool_use"])
+    .optional(),
   stop_sequence: z.string().nullable().optional(),
   usage: z.object({
     input_tokens: z.number().int().min(0),
@@ -361,7 +390,11 @@ export const ResponseInputItemSchema = z.discriminatedUnion("type", [
       z.array(
         z.discriminatedUnion("type", [
           z.object({ type: z.literal("input_text"), text: z.string() }),
-          z.object({ type: z.literal("input_image"), image_url: z.string(), detail: z.string().optional() }),
+          z.object({
+            type: z.literal("input_image"),
+            image_url: z.string(),
+            detail: z.string().optional(),
+          }),
         ]),
       ),
     ]),
@@ -400,10 +433,12 @@ export const ResponsesRequestSchema = z.object({
   stream: z.boolean().default(false),
   tools: z.array(ResponseToolSchema).optional(),
   tool_choice: z.enum(["auto", "required", "none"]).optional(),
-  truncation_strategy: z.object({
-    type: z.enum(["auto", "last_messages"]),
-    last_messages: z.number().int().positive().optional(),
-  }).optional(),
+  truncation_strategy: z
+    .object({
+      type: z.enum(["auto", "last_messages"]),
+      last_messages: z.number().int().positive().optional(),
+    })
+    .optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -444,10 +479,12 @@ export const ResponsesResponseSchema = z.object({
   output: z.array(ResponseOutputItemSchema),
   status: z.enum(["completed", "failed", "in_progress", "incomplete"]),
   usage: UsageSchema.optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }).optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 
 export type ResponsesResponse = z.infer<typeof ResponsesResponseSchema>;
@@ -477,7 +514,11 @@ export type GatewayErrorResponse = z.infer<typeof GatewayErrorResponseSchema>;
 /**
  * API endpoint format type
  */
-export const ApiFormatSchema = z.enum(["openai_chat", "anthropic_messages", "openai_responses"]);
+export const ApiFormatSchema = z.enum([
+  "openai_chat",
+  "anthropic_messages",
+  "openai_responses",
+]);
 
 export type ApiFormat = z.infer<typeof ApiFormatSchema>;
 

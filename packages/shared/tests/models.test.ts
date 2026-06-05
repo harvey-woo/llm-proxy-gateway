@@ -37,7 +37,13 @@ describe("ModelAliasEntrySchema", () => {
 
 describe("StrategySchema", () => {
   it("should accept valid strategies", () => {
-    for (const s of ["proportional", "priority", "random", "round_robin", "least_loaded"]) {
+    for (const s of [
+      "proportional",
+      "priority",
+      "random",
+      "round_robin",
+      "least_loaded",
+    ]) {
       const result = StrategySchema.safeParse(s);
       expect(result.success).toBe(true);
     }
@@ -339,8 +345,16 @@ describe("UpdateModelAliasSchema", () => {
 describe("ModelAliasListSchema", () => {
   it("should parse an array of aliases", () => {
     const result = ModelAliasListSchema.safeParse([
-      { alias: "model-a", strategy: "proportional", models: [{ provider_id: "openai", model_name: "gpt-4" }] },
-      { alias: "model-b", strategy: "random", models: [{ provider_id: "anthropic", model_name: "claude-3" }] },
+      {
+        alias: "model-a",
+        strategy: "proportional",
+        models: [{ provider_id: "openai", model_name: "gpt-4" }],
+      },
+      {
+        alias: "model-b",
+        strategy: "random",
+        models: [{ provider_id: "anthropic", model_name: "claude-3" }],
+      },
     ]);
     expect(result.success).toBe(true);
   });
@@ -353,7 +367,10 @@ describe("ModelAliasListSchema", () => {
   it("should reject invalid alias in array", () => {
     const result = ModelAliasListSchema.safeParse([
       { alias: "ok", models: [{ provider_id: "openai", model_name: "gpt-4" }] },
-      { alias: "", models: [{ provider_id: "anthropic", model_name: "claude-3" }] },
+      {
+        alias: "",
+        models: [{ provider_id: "anthropic", model_name: "claude-3" }],
+      },
     ]);
     expect(result.success).toBe(false);
   });

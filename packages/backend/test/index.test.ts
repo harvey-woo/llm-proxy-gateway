@@ -29,7 +29,7 @@ describe("LLM Proxy Gateway API", () => {
   it("GET /api/models returns model list (may be empty)", async () => {
     const res = await appClient.api.models.$get();
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     expect(json).toHaveProperty("data");
     expect(Array.isArray(json.data)).toBe(true);
@@ -53,7 +53,7 @@ describe("LLM Proxy Gateway API", () => {
   it("GET /api/providers returns provider list (may be empty)", async () => {
     const res = await appClient.api.providers.$get();
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     expect(json).toHaveProperty("data");
     expect(Array.isArray(json.data)).toBe(true);
@@ -79,7 +79,7 @@ describe("LLM Proxy Gateway API", () => {
       json: { key: "sk-sp-...c540" },
     });
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     expect(json).toHaveProperty("data");
     const data = json.data as Record<string, unknown>;
@@ -91,7 +91,7 @@ describe("LLM Proxy Gateway API", () => {
       json: { key: "sk-non...-999" },
     });
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     const data = json.data as Record<string, unknown>;
     expect(data).toHaveProperty("valid", false);
@@ -100,7 +100,7 @@ describe("LLM Proxy Gateway API", () => {
   it("GET /api/stats/dashboard returns dashboard stats", async () => {
     const res = await appClient.api.stats.dashboard.$get();
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     expect(json).toHaveProperty("data");
   });
@@ -110,7 +110,7 @@ describe("LLM Proxy Gateway API", () => {
       query: { granularity: "hour" },
     });
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     expect(json).toHaveProperty("data");
   });
@@ -118,7 +118,7 @@ describe("LLM Proxy Gateway API", () => {
   it("GET /api/stats/models returns model stats", async () => {
     const res = await appClient.api.stats.models.$get();
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     expect(json).toHaveProperty("data");
     expect(Array.isArray(json.data)).toBe(true);
@@ -127,7 +127,7 @@ describe("LLM Proxy Gateway API", () => {
   it("GET /api/stats/providers returns provider stats", async () => {
     const res = await appClient.api.stats.providers.$get();
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     expect(json).toHaveProperty("data");
     expect(Array.isArray(json.data)).toBe(true);
@@ -136,7 +136,7 @@ describe("LLM Proxy Gateway API", () => {
   it("GET /api/stats/auths returns auth stats", async () => {
     const res = await appClient.api.stats.auths.$get();
     expect(res.status).toBe(200);
-    const json = await res.json() as Record<string, unknown>;
+    const json = (await res.json()) as Record<string, unknown>;
     expect(json).toHaveProperty("success", true);
     expect(json).toHaveProperty("data");
     expect(Array.isArray(json.data)).toBe(true);

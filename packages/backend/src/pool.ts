@@ -33,7 +33,10 @@ export class ProviderPool {
   private rateLimiter: RateLimiter;
   private queue: QueueEntry[];
   private rrCounters: Map<string, number>;
-  private sessionAffinity: Map<string, { providerId: string; authKey: string; realModel: string }>;
+  private sessionAffinity: Map<
+    string,
+    { providerId: string; authKey: string; realModel: string }
+  >;
   private healthStats: Map<string, HealthStats>;
 
   constructor(
@@ -150,7 +153,11 @@ export class ProviderPool {
           const authMap = this.auths.get(pinned.providerId);
           const auth = authMap?.get(pinned.authKey);
           if (auth) {
-            const authEntry: AuthEntry = { auth, providerId: pinned.providerId, provider };
+            const authEntry: AuthEntry = {
+              auth,
+              providerId: pinned.providerId,
+              provider,
+            };
             // "Best effort": only reuse if still available, otherwise fall through
             if (this.isAuthAvailable(authEntry, estimatedTokens).allowed) {
               return { authEntry, realModel: pinned.realModel };
@@ -212,7 +219,10 @@ export class ProviderPool {
     let selected = auths[0];
 
     for (const entry of auths) {
-      const usage = this.rateLimiter.getUsage(entry.auth.key, entry.provider.rate_limits);
+      const usage = this.rateLimiter.getUsage(
+        entry.auth.key,
+        entry.provider.rate_limits,
+      );
       let peakUsage = 0;
 
       for (const limit of entry.provider.rate_limits) {
@@ -221,11 +231,11 @@ export class ProviderPool {
 
         let used = 0;
         if (limit.type === "weighted_requests") {
-          used = usage[`requests_per_${limit.period}`] as number ?? 0;
+          used = (usage[`requests_per_${limit.period}`] as number) ?? 0;
         } else if (limit.type === "tokens") {
-          used = usage[`tokens_per_${limit.period}`] as number ?? 0;
+          used = (usage[`tokens_per_${limit.period}`] as number) ?? 0;
         } else if (limit.type === "concurrency") {
-          used = usage["current_concurrency"] as number ?? 0;
+          used = (usage["current_concurrency"] as number) ?? 0;
         }
         const pct = used / max;
         if (pct > peakUsage) peakUsage = pct;
@@ -265,7 +275,10 @@ export class ProviderPool {
     let selected = auths[0];
 
     for (const entry of auths) {
-      const usage = this.rateLimiter.getUsage(entry.auth.key, entry.provider.rate_limits);
+      const usage = this.rateLimiter.getUsage(
+        entry.auth.key,
+        entry.provider.rate_limits,
+      );
       const concurrency = usage.current_concurrency ?? 0;
       if (concurrency < minConcurrency) {
         minConcurrency = concurrency;
@@ -313,7 +326,11 @@ export class ProviderPool {
    * Record a successful upstream request for health tracking.
    */
   recordSuccess(authKey: string): void {
-    const stats = this.healthStats.get(authKey) ?? { successCount: 0, failureCount: 0, lastFailureAt: null };
+    const stats = this.healthStats.get(authKey) ?? {
+      successCount: 0,
+      failureCount: 0,
+      lastFailureAt: null,
+    };
     stats.successCount++;
     this.healthStats.set(authKey, stats);
   }
@@ -322,7 +339,11 @@ export class ProviderPool {
    * Record an upstream failure for health tracking.
    */
   recordFailure(authKey: string): void {
-    const stats = this.healthStats.get(authKey) ?? { successCount: 0, failureCount: 0, lastFailureAt: null };
+    const stats = this.healthStats.get(authKey) ?? {
+      successCount: 0,
+      failureCount: 0,
+      lastFailureAt: null,
+    };
     stats.failureCount++;
     stats.lastFailureAt = Date.now();
     this.healthStats.set(authKey, stats);
@@ -351,7 +372,10 @@ export class ProviderPool {
    * Enqueue a request when no auth is available.
    * Returns a promise that resolves when an auth becomes available or times out.
    */
-  enqueue(modelAlias: string, timeoutMs: number = 30000): Promise<PoolSelection | null> {
+  enqueue(
+    modelAlias: string,
+    timeoutMs: number = 30000,
+  ): Promise<PoolSelection | null> {
     return new Promise<PoolSelection | null>((resolve, reject) => {
       const entry: QueueEntry = {
         resolve,
@@ -416,7 +440,11 @@ export class ProviderPool {
   /**
    * Record a request completion (release concurrency).
    */
-  recordCompletion(authKey: string, provider: Provider, tokens: number = 0): void {
+  recordCompletion(
+    authKey: string,
+    provider: Provider,
+    tokens: number = 0,
+  ): void {
     this.rateLimiter.releaseConcurrency(authKey, provider.rate_limits);
 
     // Record actual tokens for token-based limits
@@ -445,7 +473,12 @@ export class ProviderPool {
   }
 
   /** Pin a session ID to a provider/auth for affinity */
-  pinSession(sessionId: string, providerId: string, authKey: string, realModel: string): void {
+  pinSession(
+    sessionId: string,
+    providerId: string,
+    authKey: string,
+    realModel: string,
+  ): void {
     this.sessionAffinity.set(sessionId, { providerId, authKey, realModel });
   }
 }

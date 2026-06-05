@@ -285,3 +285,66 @@ export async function refreshOAuthTokens(
     expiresAt,
   };
 }
+
+// ── Refresh + persist helper ──
+
+export interface OAuthMetadata {
+  access_token?: string;
+  refresh_token?: string;
+  id_token?: string;
+  refresh_url?: string;
+  expires_at?: string;
+  token_refreshed_at?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * 刷新 Codex OAuth token 并持久化到 DB 和内存状态。
+ * 供 gateway（401 自动刷新）和 usage（同步用量前刷新）统一调用。
+ *
+ * @returns 刷新后的 metadata JSON 字符串（已更新 access_token / refresh_token / expires_at）
+ */
+export async function refreshAndSaveCodexToken(
+  metadata: OAuthMetadata,
+  providerId: string,
+  authKey: string,
+  opts?: {
+    updateKey?: (newKey: string, metadataJson: string) => void; // 更新内存中的 auth key
+  },
+): Promise<string> {
+  const refreshToken = metadata.refresh_token;
+  if (!refreshToken) throw new Error("No refresh_token available");
+
+  const result = await refreshOAuthTokens(refreshToken);
+
+  const now = new Date().toISOString();
+  metadata.access_token = result.accessToken;
+  if (result.refreshToken) metadata.refresh_token = result.refreshToken;
+  metadata.expires_at = result.expiresAt;
+  metadata.token_refreshed_at = now;
+
+  const metadataJson = JSON.stringify(metadata);
+
+  // 持久化到 DB
+  const { getDb } = await import("./db/database.js");
+  try {
+    const db = await getDb();
+    await db
+      .updateTable("provider_auths")
+      .set({
+        key: result.accessToken,
+        metadata: metadataJson,
+        updated_at: now,
+      })
+      .where("provider_id", "=", providerId)
+      .where("key", "=", authKey)
+      .execute();
+  } catch (err) {
+    console.warn("[oauth] Failed to persist refreshed token:", err);
+  }
+
+  // 更新内存
+  opts?.updateKey?.(result.accessToken, metadataJson);
+
+  return metadataJson;
+}

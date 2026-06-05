@@ -17,6 +17,7 @@ import { createStatsRoutes } from "./routes/stats.js";
 import { createRatesRoutes } from "./routes/rates.js";
 import { createTemplatesRoutes } from "./routes/templates.js";
 import { createOAuthRoutes } from "./routes/oauth.js";
+import { createUsageRoutes } from "./routes/usage.js";
 
 // ============================================================
 // App state
@@ -219,6 +220,9 @@ export async function createApp(opts?: {
 
   // Stats routes
   app.route("/", createStatsRoutes(configRef));
+
+  // Usage routes (auth usage stats + reset)
+  app.route("/", createUsageRoutes(pool, storeRef));
 
   // Frontend static files (served at the end — API routes take priority)
   if (opts?.frontendDist) {
