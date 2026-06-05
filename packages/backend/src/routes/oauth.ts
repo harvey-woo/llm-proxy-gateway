@@ -9,7 +9,7 @@ import {
   buildCodexAuthURL,
   exchangeCodeForTokens,
   oauthSessionStore,
-  CODEX_REDIRECT_URI,
+  getCodexRedirectURI,
 } from "../oauth.js";
 
 export function createOAuthRoutes(
@@ -45,7 +45,7 @@ export function createOAuthRoutes(
     }
 
     // 使用 CPA 注册的固定回调地址
-    const redirectUri = CODEX_REDIRECT_URI;
+    const redirectUri = getCodexRedirectURI();
 
     // Generate PKCE
     const codeVerifier = generateCodeVerifier();

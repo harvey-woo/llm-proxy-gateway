@@ -258,50 +258,8 @@ export async function createApp(opts?: {
     });
   }
 
-  // ── Codex OAuth 回调重定向服务 (port 1455) ──
-  // CPA 注册的 OAuth app 固定回调地址为 http://localhost:1455/auth/callback
-  // 我们在此端口启动轻量 HTTP 服务，将回调 302 重定向到主服务器的回调路径
-  const startCallbackServer = async () => {
-    if (process.env.VITEST) return null;
-    const http = await import("node:http");
-    const server = http
-      .createServer((req, res) => {
-        try {
-          const url = new URL(
-            req.url ?? "/",
-            `http://${req.headers.host ?? "localhost"}`,
-          );
-          if (url.pathname === "/auth/callback") {
-            const code = url.searchParams.get("code") ?? "";
-            const state = url.searchParams.get("state") ?? "";
-            const mainPort = process.env.PORT || "28940";
-            const redirectTo = `http://localhost:${mainPort}/api/oauth/codex/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
-            res.writeHead(302, { Location: redirectTo });
-            res.end();
-          } else {
-            res.writeHead(404);
-            res.end("Not found");
-          }
-        } catch {
-          res.writeHead(500);
-          res.end("Internal error");
-        }
-      })
-      .listen(1455);
-    console.log(
-      `[server] Codex OAuth callback redirect server listening on port 1455`,
-    );
-    return server;
-  };
-  const callbackServer = await startCallbackServer();
-
   // Cleanup function
   const stop = async () => {
-    if (callbackServer) {
-      await new Promise<void>((resolve) =>
-        callbackServer.close(() => resolve()),
-      );
-    }
     await closeDb();
   };
 

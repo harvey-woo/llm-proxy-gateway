@@ -23,7 +23,13 @@ export const CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 export const CODEX_AUTH_URL = "https://auth.openai.com/oauth/authorize";
 export const CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token";
 // CPA 固定的回调地址 — 必须在 OAuth app 注册列表中
-export const CODEX_REDIRECT_URI = "http://localhost:1455/auth/callback";
+export const CODEX_REDIRECT_URI = `http://localhost:${process.env.PORT || 28940}/auth/callback`;
+
+// 生产构建时 backend port 为 28920（Electrobun 打包后）
+export function getCodexRedirectURI(): string {
+  const port = process.env.PORT || (process.env.NODE_ENV === 'production' ? '28920' : '28940');
+  return `http://localhost:${port}/auth/callback`;
+}
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 // ── PKCE helpers ──
