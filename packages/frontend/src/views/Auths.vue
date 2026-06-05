@@ -64,6 +64,7 @@ const oauthTypes = Object.entries(OAUTH_TYPE_PRESETS).map(([key, val]) => ({
 const selectedOauthType = ref("");
 const oauthProviderId = ref("");
 const oauthSessionJson = ref("");
+const oauthName = ref("");
 const parsedInfo = ref<ParsedSession | null>(null);
 
 // Providers filtered by OAuth type baseUrl pattern
@@ -251,9 +252,7 @@ async function importOAuth() {
     email: parsedInfo.value.email || undefined,
     plan_type: parsedInfo.value.planType || undefined,
     expires_at: parsedInfo.value.expiresAt || undefined,
-    name: parsedInfo.value.userName
-      ? `Codex (${parsedInfo.value.email || parsedInfo.value.userName})`
-      : "Codex OAuth",
+    name: oauthName.value.trim() || undefined,
   });
   if (res.success) {
     toast.success(t("auths.oauthImportSuccess"));
@@ -269,6 +268,7 @@ function resetOAuthForm() {
   selectedOauthType.value = "";
   oauthProviderId.value = "";
   oauthSessionJson.value = "";
+  oauthName.value = "";
   parsedInfo.value = null;
 }
 
@@ -485,8 +485,8 @@ onMounted(() => {
           </p>
         </div>
 
-        <!-- 引导卡片（仅在选中类型后显示） -->
-        <div v-if="selectedOauthType && oauthProviderId" class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+        <!-- 引导卡片（选择类型后即可见） -->
+        <div v-if="selectedOauthType" class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
           <div class="text-sm font-semibold text-indigo-800 dark:text-indigo-200 mb-2 flex items-center gap-1.5">
             <span class="i-tabler-brand-openai text-base" />
             {{ selectedOauthTypeLabel }} 导入步骤
@@ -517,8 +517,8 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Session JSON 粘贴框 -->
-        <div>
+        <!-- Session JSON 粘贴框（选择类型后即可用） -->
+        <div v-if="selectedOauthType">
           <label class="form-label flex items-center gap-1.5">
             Session JSON
             <span v-if="parsedInfo" class="text-green-600 dark:text-green-400 text-xs font-normal flex items-center gap-0.5">
@@ -529,9 +529,20 @@ onMounted(() => {
             v-model="oauthSessionJson"
             class="input font-mono text-xs h-36 resize-y"
             :class="parsedInfo ? 'border-green-300 dark:border-green-700 focus:border-green-500' : ''"
-            :disabled="!selectedOauthType || !oauthProviderId"
-            placeholder='先选择 OAuth 类型和供应商，然后将 Session JSON 粘贴到这里……'
+            placeholder='访问 https://chatgpt.com/api/auth/session 后，将浏览器显示的完整 JSON 粘贴到这里……'
             @input="parseSessionJson(oauthSessionJson)"
+          />
+        </div>
+
+        <!-- 名称（可选） -->
+        <div>
+          <label class="form-label">{{ $t("auths.name") }}</label>
+          <input
+            v-model="oauthName"
+            type="text"
+            class="input"
+            :placeholder="$t('auths.namePlaceholder')"
+            :disabled="!parsedInfo"
           />
         </div>
 

@@ -377,18 +377,22 @@ export async function getDashboardStats(
 
     switch (provider.pricing_model) {
       case "per_request_weighted":
+        // Aggregate real tokens for cost calculation (if needed by pricing formula)
+        const rwLogs = logs.filter((l) => l.provider_id === providerId);
+        const rwTokens = rwLogs.reduce((s, l) => s + l.total_tokens, 0);
         perRequestWeightedRows.push({
           provider_id: providerId,
           weighted_requests: pd.weightedRequests,
-          cost: calcCost(pd.weightedRequests, provider, providerTokens),
+          cost: calcCost(pd.weightedRequests, provider, rwTokens),
           currency: provider.currency,
           unit_price: provider.unit_price ?? 0.001,
           rate_limited: pd.rateLimited,
           auths: providerAuthsMap.get(providerId) ?? [],
         });
         break;
-      case "per_model_token": {
+      case "per_model_token":
         // Aggregate real tokens from request logs for this provider
+        {
         const providerLogs = logs.filter((l) => l.provider_id === providerId);
         const providerTokens = providerLogs.reduce((s, l) => s + l.total_tokens, 0);
         const providerInputTokens = providerLogs.reduce((s, l) => s + l.input_tokens, 0);

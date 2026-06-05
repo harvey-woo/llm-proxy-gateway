@@ -4,6 +4,41 @@ import { providersStore, rateLimitTracker } from "../store.js";
 
 const router = new Hono();
 
+// ── Mock OAuth token refresh endpoint ──
+// POST /oauth/token - 模拟 OAuth token 刷新
+router.post("/oauth/token", async (c) => {
+  const body = await c.req.parseBody();
+  const grantType = body.grant_type as string;
+
+  if (grantType === "refresh_token") {
+    const oldToken = body.refresh_token as string;
+    const newAccessToken = oldToken
+      ? oldToken.replace("expired", "refreshed")
+      : "test-refreshed-new-token";
+    const newRefreshToken = oldToken ? oldToken : "mock-refresh-token";
+
+    // Update the provider store so subsequent requests use the new key
+    for (const [, provider] of providersStore) {
+      for (const auth of provider.auths ?? []) {
+        if (auth.key?.startsWith("test-expired-")) {
+          auth.key = newAccessToken;
+          break;
+        }
+      }
+    }
+
+    return c.json({
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken,
+      id_token: "eyJhbGciOiJSUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.test",
+      expires_in: 3600,
+      token_type: "Bearer",
+    });
+  }
+
+  return c.json({ error: "unsupported_grant_type" }, 400);
+});
+
 // GET /health - Health check
 router.get("/health", (c) => {
   return c.json({
@@ -32,23 +67,39 @@ router.post("/v1/chat/completions", async (c) => {
   const authHeader = c.req.header("Authorization") || "";
   const apiKey = authHeader.replace("Bearer ", "").replace("sk-", "");
 
-    // Find auths from providersStore (auths are now nested in providers)
-    let foundAuth = null;
-    let providerId = "";
-    for (const [pid, p] of providersStore) {
-      const a = p.auths?.find((auth) => auth.key === authHeader.replace("Bearer ", ""));
-      if (a) {
-        foundAuth = a;
-        providerId = pid;
-        break;
-      }
+  // ── OAuth 过期测试 ──
+  // 如果 Bearer token 以 "test-expired-" 开头，模拟上游返回 401
+  // (不依赖 providersStore 查找，直接检查请求头)
+  const bearerToken = authHeader.replace("Bearer ", "").trim();
+  if (bearerToken.startsWith("test-expired-")) {
+    return c.json(
+      {
+        error: {
+          message: "Token expired or invalid",
+          type: "authentication_error",
+          code: "token_expired",
+        },
+      },
+      401,
+    );
+  }
+
+  // Find auths from providersStore
+  let foundAuth = null;
+  let providerId = "";
+  for (const [pid, p] of providersStore) {
+    const a = p.auths?.find((auth) => auth.key === bearerToken);
+    if (a) {
+      foundAuth = a;
+      providerId = pid;
+      break;
     }
+  }
+
   if (foundAuth && foundAuth.key === "sk-rat...y-99") {
     // Track requests for this key
     const timestamps = rateLimitTracker.get(foundAuth.key) ?? [];
     const now = Date.now();
-    // Keep only last 60 seconds of timestamps
-    const recent = timestamps.filter((t) => now - t < 60000);
     recent.push(now);
     rateLimitTracker.set(foundAuth.key, recent);
 

@@ -542,8 +542,11 @@ async function tryRefreshOAuthToken(
   const refreshToken = metadata.refresh_token;
   if (!refreshToken) return null;
 
+  // Allow custom refresh URL in metadata (for testing or non-OpenAI providers)
+  const refreshUrl = metadata.refresh_url || "https://auth.openai.com/oauth/token";
+
   try {
-    const response = await fetch("https://auth.openai.com/oauth/token", {
+    const response = await fetch(refreshUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
