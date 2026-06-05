@@ -52,7 +52,7 @@ export default defineConfig({
     btn: "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none whitespace-nowrap",
 
     "btn-sm":
-      "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-3 py-1.5 text-xs gap-1 whitespace-nowrap",
+      "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-3 py-1.5 text-xs gap-1 whitespace-nowrap border border-solid border-transparent",
     "btn-md":
       "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-4 py-2 text-sm gap-1.5 whitespace-nowrap",
     "btn-lg":
@@ -68,14 +68,14 @@ export default defineConfig({
       "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30",
 
     "btn-primary":
-      "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-4 py-2 text-sm gap-1.5 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-500 dark:hover:bg-blue-600 dark:active:bg-blue-700 shadow-sm whitespace-nowrap",
+      "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-4 py-2 text-sm gap-1.5 bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-500 dark:hover:bg-blue-600 dark:active:bg-blue-700 shadow-sm whitespace-nowrap border border-solid border-transparent",
     "btn-secondary":
       "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-4 py-2 text-sm gap-1.5 bg-white dark:bg-gray-800 border border-solid border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 whitespace-nowrap",
 
     "btn-ghost":
-      "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-3 py-1.5 text-xs gap-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 whitespace-nowrap",
+      "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-3 py-1.5 text-xs gap-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 whitespace-nowrap border border-solid border-transparent",
     "btn-danger":
-      "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-3 py-1.5 text-xs gap-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 whitespace-nowrap",
+      "rounded-lg font-medium transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 cursor-pointer select-none px-3 py-1.5 text-xs gap-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 whitespace-nowrap border border-solid border-transparent",
 
     // ============================
     //  Form Controls — Base & Size System
