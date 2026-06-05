@@ -17,6 +17,7 @@ import { createStatsRoutes } from "./routes/stats.js";
 import { createRatesRoutes } from "./routes/rates.js";
 import { createTemplatesRoutes } from "./routes/templates.js";
 import { createOAuthRoutes } from "./routes/oauth.js";
+import { setCodexAppFetch } from "./oauth.js";
 import { createUsageRoutes } from "./routes/usage.js";
 
 // ============================================================
@@ -258,8 +259,14 @@ export async function createApp(opts?: {
     });
   }
 
+  // 注册 app.fetch，用于按需启动的 Codex OAuth 回调服务器（port 1455）
+  setCodexAppFetch(app.fetch);
+
   // Cleanup function
   const stop = async () => {
+    if (callbackServer) {
+      callbackServer.close();
+    }
     await closeDb();
   };
 

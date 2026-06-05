@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useApi } from "../composables/useApi";
 import { useToast } from "../composables/useToast";
@@ -236,9 +236,19 @@ async function handleCodexAuthDone() {
 /** OAuth 完成后的保存：关闭弹窗并刷新列表 */
 async function confirmOAuthSave() {
   showAddModal.value = false;
+  await api.post("/api/oauth/codex/cancel").catch(() => {});
   resetOAuthForm();
   await fetchAuths();
   toast.success(t("auths.codexAuthSuccess"));
+}
+
+/** 取消 OAuth 授权，关闭 1455 回调服务器 */
+async function cancelCodexOAuth() {
+  if (codexOAuthUrl.value) {
+    await api.post("/api/oauth/codex/cancel").catch(() => {});
+  }
+  showAddModal.value = false;
+  resetOAuthForm();
 }
 
 function copyCodexUrl() {
@@ -544,6 +554,13 @@ onMounted(() => {
   fetchProviders();
   fetchAuths();
 });
+
+// 弹窗关闭时自动关闭 1455 回调服务器
+watch(showAddModal, (open) => {
+  if (!open && codexOAuthUrl.value) {
+    api.post("/api/oauth/codex/cancel").catch(() => {});
+  }
+});
 </script>
 
 <template>
@@ -720,7 +737,7 @@ onMounted(() => {
           <button
             class="btn-secondary"
             data-testid="auth-cancel-btn"
-            @click="showAddModal = false"
+            @click="cancelCodexOAuth()"
           >
             {{ $t("common.cancel") }}
           </button>
@@ -957,7 +974,7 @@ onMounted(() => {
         <div class="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
           <button
             class="btn-secondary"
-            @click="showAddModal = false"
+            @click="cancelCodexOAuth()"
           >
             {{ $t("common.cancel") }}
           </button>

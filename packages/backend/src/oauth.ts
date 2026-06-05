@@ -1,4 +1,6 @@
 import { randomBytes, createHash } from "node:crypto";
+import type { ServerType } from "@hono/node-server";
+import { serve } from "@hono/node-server";
 
 // ============================================================
 // Codex OAuth 2.0 PKCE Flow — Session Store & Helpers
@@ -11,11 +13,101 @@ import { randomBytes, createHash } from "node:crypto";
 //   - Token endpoint:     https://auth.openai.com/oauth/token
 //
 // Flow:
-//   1. GET /api/oauth/codex/authorize → generate PKCE+state, return auth URL
-//   2. User opens auth URL, authorizes → redirect to callback
-//   3. GET /api/oauth/codex/callback → exchange code → store tokens → done
-//   4. GET /api/oauth/codex/status → poll for completion
+//   1. User clicks "Start Codex Login"
+//   2. Backend starts temporary HTTP server on port 1455 (CPA registered redirect_uri)
+//   3. Backend generates PKCE+state, returns auth URL
+//   4. User authorizes in browser → OpenAI → port 1455 → callback
+//   5. Exchange code → store tokens → stop port 1455 server → done
+//   6. Frontend polls /api/oauth/codex/status until completed
 // ============================================================
+
+// ── On-demand Codex callback server (port 1455) ──
+// CPA 注册的 OAuth app 固定回调地址为 http://localhost:1455/auth/callback
+// 这个 server 只在用户点击"开始 Codex 登录"后才启动，授权完成后就关闭。
+// 5 分钟无活动自动超时关闭，防止端口残留。
+
+const CODEX_CALLBACK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+let codexCallbackServer: ServerType | null = null;
+let codexAppFetch: ((req: Request) => Promise<Response>) | null = null;
+let codexCallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Register the Hono app's fetch handler so the 1455 callback server can use it.
+ */
+export function setCodexAppFetch(fetch: (req: Request) => Promise<Response>): void {
+  codexAppFetch = fetch;
+}
+
+/** 重置 5 分钟超时定时器 */
+function resetCallbackTimeout(): void {
+  if (codexCallbackTimer) clearTimeout(codexCallbackTimer);
+  codexCallbackTimer = setTimeout(() => {
+    console.log("[oauth] Codex OAuth callback server timed out (5 min)");
+    stopCodexCallbackServer();
+  }, CODEX_CALLBACK_TIMEOUT_MS);
+}
+
+/**
+ * Start a temporary HTTP server on port 1455 to receive the OAuth callback.
+ * Returns true on success (or already running), false if port is already in use.
+ */
+export function startCodexCallbackServer(): boolean {
+  if (codexCallbackServer) {
+    // 已运行，重置超时
+    resetCallbackTimeout();
+    return true;
+  }
+
+  if (!codexAppFetch) {
+    console.warn("[oauth] Codex app fetch not registered yet");
+    return false;
+  }
+
+  try {
+    codexCallbackServer = serve(
+      { fetch: codexAppFetch, port: 1455 },
+      () => {
+        console.log("[oauth] Codex OAuth callback server started on port 1455");
+      },
+    );
+    resetCallbackTimeout();
+    return true;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("EADDRINUSE") || msg.includes("listen")) {
+      console.warn("[oauth] Port 1455 is already in use — cannot start Codex OAuth callback server");
+    } else {
+      console.error("[oauth] Failed to start Codex OAuth callback server:", msg);
+    }
+    codexCallbackServer = null;
+    return false;
+  }
+}
+
+/**
+ * Stop the temporary 1455 callback server after OAuth flow completes.
+ */
+export function stopCodexCallbackServer(): void {
+  if (codexCallbackTimer) {
+    clearTimeout(codexCallbackTimer);
+    codexCallbackTimer = null;
+  }
+  if (codexCallbackServer) {
+    try {
+      codexCallbackServer.close();
+    } catch { /* ignore close errors */ }
+    codexCallbackServer = null;
+    console.log("[oauth] Codex OAuth callback server stopped");
+  }
+}
+
+/**
+ * 检查 1455 回调服务器是否正在运行。
+ */
+export function isCodexCallbackServerRunning(): boolean {
+  return codexCallbackServer !== null;
+}
 
 // ── Constants ──
 
@@ -23,13 +115,7 @@ export const CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 export const CODEX_AUTH_URL = "https://auth.openai.com/oauth/authorize";
 export const CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token";
 // CPA 固定的回调地址 — 必须在 OAuth app 注册列表中
-export const CODEX_REDIRECT_URI = `http://localhost:${process.env.PORT || 28940}/auth/callback`;
-
-// 生产构建时 backend port 为 28920（Electrobun 打包后）
-export function getCodexRedirectURI(): string {
-  const port = process.env.PORT || (process.env.NODE_ENV === 'production' ? '28920' : '28940');
-  return `http://localhost:${port}/auth/callback`;
-}
+export const CODEX_REDIRECT_URI = "http://localhost:1455/auth/callback";
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 // ── PKCE helpers ──

@@ -9,7 +9,10 @@ import {
   buildCodexAuthURL,
   exchangeCodeForTokens,
   oauthSessionStore,
-  getCodexRedirectURI,
+  CODEX_REDIRECT_URI,
+  startCodexCallbackServer,
+  stopCodexCallbackServer,
+  isCodexCallbackServerRunning,
 } from "../oauth.js";
 
 export function createOAuthRoutes(
@@ -45,7 +48,7 @@ export function createOAuthRoutes(
     }
 
     // 使用 CPA 注册的固定回调地址
-    const redirectUri = getCodexRedirectURI();
+    const redirectUri = CODEX_REDIRECT_URI;
 
     // Generate PKCE
     const codeVerifier = generateCodeVerifier();
@@ -69,6 +72,15 @@ export function createOAuthRoutes(
       codeChallenge,
     });
 
+    // 启动临时回调服务器（port 1455）
+    if (!startCodexCallbackServer()) {
+      return c.json({
+        success: false,
+        error: "端口 1455 已被占用，无法启动 Codex OAuth 回调服务。请释放该端口后重试。",
+        code: "PORT_1455_BUSY",
+      });
+    }
+
     return c.json({
       success: true,
       data: {
@@ -89,16 +101,19 @@ export function createOAuthRoutes(
 
     if (error) {
       oauthSessionStore.updateStatus(state ?? "", "error", error);
+      stopCodexCallbackServer();
       return c.html(successPage("授权失败", `OpenAI 返回错误: ${error}`));
     }
 
     if (!code || !state) {
+      stopCodexCallbackServer();
       return c.html(errorPage("缺少参数", "回调缺少 code 或 state 参数。"));
     }
 
     // Look up session
     const session = oauthSessionStore.get(state);
     if (!session) {
+      stopCodexCallbackServer();
       return c.html(
         errorPage(
           "会话过期",
@@ -176,6 +191,9 @@ export function createOAuthRoutes(
       // Notify pool to refresh
       onAuthChange?.();
 
+      // OAuth 完成，关闭临时回调服务器
+      stopCodexCallbackServer();
+
       // Show success page
       return c.html(
         successPage(
@@ -186,6 +204,7 @@ export function createOAuthRoutes(
     } catch (err) {
       const msg = err instanceof Error ? err.message : "未知错误";
       oauthSessionStore.updateStatus(state, "error", msg);
+      stopCodexCallbackServer();
       return c.html(errorPage("Token 交换失败", msg));
     }
   });
@@ -219,7 +238,14 @@ export function createOAuthRoutes(
       },
     });
   });
-
+  // ============================================================
+  // POST /api/oauth/codex/cancel
+  // 取消当前的 OAuth 授权流程，关闭 1455 回调服务器
+  // ============================================================
+  router.post("/api/oauth/codex/cancel", (c) => {
+    stopCodexCallbackServer();
+    return c.json({ success: true });
+  });
   return router;
 }
 
