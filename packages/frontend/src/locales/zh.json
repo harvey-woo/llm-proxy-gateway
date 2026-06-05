@@ -179,6 +179,7 @@
   "auths.title": "授权密钥管理",
   "auths.subtitle": "管理所有供应商的授权密钥",
   "auths.empty": "暂无授权密钥",
+  "auths.addTabApiKey": "API Key",
   "auths.addTitle": "添加授权密钥",
   "auths.provider": "供应商",
   "auths.apiKey": "API Key",

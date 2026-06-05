@@ -572,7 +572,7 @@ watch(showAddModal, (open) => {
       </div>
       <div class="flex items-center gap-2">
         <button
-          class="btn-secondary btn-sm"
+          class="btn-secondary"
           data-testid="auth-refresh-usage-btn"
           @click="fetchUsage"
         >
@@ -580,7 +580,7 @@ watch(showAddModal, (open) => {
           {{ $t("auths.refreshUsage") }}
         </button>
         <button
-          class="btn-primary"
+          class="btn-primary btn-sm"
           data-testid="auth-add-btn"
           @click="openAddModal"
         >
@@ -838,9 +838,9 @@ watch(showAddModal, (open) => {
               <div class="bg-white dark:bg-blue-950/40 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
                 <p class="text-xs text-blue-500 dark:text-blue-400 mb-1.5">{{ $t("auths.codexOAuthManual") }}</p>
                 <div class="flex items-center gap-1.5">
-                  <code class="flex-1 text-xs font-mono bg-blue-100 dark:bg-blue-900/60 px-2 py-1.5 rounded truncate select-all">{{ codexOAuthUrl }}</code>
+                  <code class="flex-1 text-xs font-mono bg-blue-100 dark:bg-blue-900/60 px-2 py-1.5 rounded truncate select-all leading-normal">{{ codexOAuthUrl }}</code>
                   <button
-                    class="flex-shrink-0 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                    class="flex-shrink-0 px-2 py-1.5 rounded text-xs font-medium transition-colors leading-normal"
                     :class="codexUrlCopied ? 'bg-green-200 text-green-700 dark:bg-green-800 dark:text-green-300' : 'bg-blue-200 text-blue-700 hover:bg-blue-300 dark:bg-blue-700 dark:text-blue-200 dark:hover:bg-blue-600'"
                     @click="copyCodexUrl"
                   >

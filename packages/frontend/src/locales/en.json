@@ -179,6 +179,7 @@
   "auths.title": "Auth Keys",
   "auths.subtitle": "Manage API keys for all providers",
   "auths.empty": "No auth keys",
+  "auths.addTabApiKey": "API Key",
   "auths.addTitle": "Add Auth Key",
   "auths.provider": "Provider",
   "auths.apiKey": "API Key",
