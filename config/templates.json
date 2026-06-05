@@ -118,6 +118,24 @@
         { "name": "claude-haiku-3-5-20241022", "alias": "claude-haiku", "input_price": 0.8, "output_price": 4, "cache_hit_price": 0.08, "cache_create_price": 1 }
       ],
       "rate_limits": []
+    },
+    {
+      "id": "openai-codex",
+      "name": "OpenAI Codex",
+      "base_url": "https://chatgpt.com/backend-api/codex",
+      "api_format": "openai_responses",
+      "currency": "USD",
+      "enabled": true,
+      "description": "OpenAI Codex API via ChatGPT OAuth（Responses API）",
+      "pricing_model": "per_model_token",
+      "models": [
+        { "name": "gpt-5.4-mini", "input_price": 0, "output_price": 0 },
+        { "name": "gpt-5.4", "input_price": 0, "output_price": 0 },
+        { "name": "gpt-5.5", "input_price": 0, "output_price": 0 },
+        { "name": "gpt-5.3-codex-spark", "input_price": 0, "output_price": 0 },
+        { "name": "codex-auto-review", "input_price": 0, "output_price": 0 }
+      ],
+      "rate_limits": []
     }
   ]
 }

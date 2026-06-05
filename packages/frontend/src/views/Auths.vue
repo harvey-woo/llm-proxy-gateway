@@ -38,6 +38,9 @@ const api = useApi();
 const toast = useToast();
 const { t } = useI18n();
 
+const isDesktop =
+  typeof window !== "undefined" && !!(window as any).__electrobun;
+
 const authsList = ref<AuthDisplay[]>([]);
 const providers = ref<ProviderOption[]>([]);
 const showAddModal = ref(false);
@@ -49,23 +52,58 @@ const formKey = ref("");
 const formName = ref("");
 
 // ── OAuth import ──
-// OAuth provider presets. Add new entries here when a new provider is supported.
-// codex: ChatGPT session JSON → accessToken → api.openai.com Bearer auth
-const OAUTH_TYPE_PRESETS: Record<string, { label: string; baseUrlPattern: string }> = {
-  codex: { label: "OpenAI Codex", baseUrlPattern: "api.openai.com" },
+// ============================================================
+// OAuth 类型：
+// Codex → Codex API
+//   - 粘贴：Codex JSON 文件（例如 CPA 导出的 codex-xxx.json）
+//   - OAuth：跳转 auth.openai.com 完成授权
+//   → 适用于 chatgpt.com/backend-api/codex 供应商
+// ============================================================
+const OAUTH_TYPE_PRESETS: Record<
+  string,
+  {
+    label: string;
+    baseUrlPattern: string;
+    description: string;
+    flowType: "codex";
+  }
+> = {
+  codex: {
+    label: "Codex",
+    baseUrlPattern: "chatgpt.com/backend-api/codex",
+    description: "Paste codex JSON or import via OAuth",
+    flowType: "codex",
+  },
 };
 
 const oauthTypes = Object.entries(OAUTH_TYPE_PRESETS).map(([key, val]) => ({
   id: key,
   label: val.label,
   baseUrlPattern: val.baseUrlPattern,
+  description: val.description,
+  flowType: val.flowType,
 }));
 
 const selectedOauthType = ref("");
 const oauthProviderId = ref("");
-const oauthSessionJson = ref("");
 const oauthName = ref("");
-const parsedInfo = ref<ParsedSession | null>(null);
+
+// Codex sub-tab: "paste" or "oauth"
+const codexSubTab = ref<"oauth" | "paste">("oauth");
+
+// Codex JSON paste
+const codexJsonInput = ref("");
+const codexParsedInfo = ref<ParsedSession | null>(null);
+
+// Codex OAuth state
+const codexOAuthState = ref("");
+const codexOAuthUrl = ref("");
+const codexOAuthStatus = ref<"idle" | "authorizing" | "completed" | "error">(
+  "idle",
+);
+const codexOAuthError = ref("");
+const codexUrlCopied = ref(false);
+let codexPollTimer: ReturnType<typeof setInterval> | null = null;
 
 // Providers filtered by OAuth type baseUrl pattern
 const filteredProviders = computed(() => {
@@ -84,93 +122,143 @@ const selectedOauthTypeLabel = computed(() => {
 
 function onOauthTypeChange() {
   oauthProviderId.value = "";
-  oauthSessionJson.value = "";
-  parsedInfo.value = null;
-}
+  codexOAuthStatus.value = "idle";
+  codexOAuthState.value = "";
+  codexOAuthUrl.value = "";
+  codexOAuthError.value = "";
+  if (codexPollTimer) {
+    clearInterval(codexPollTimer);
+    codexPollTimer = null;
+  }
+  codexJsonInput.value = "";
+  codexParsedInfo.value = null;
+  codexSubTab.value = "oauth";
 
-function copyUrl() {
-  navigator.clipboard.writeText("https://chatgpt.com/api/auth/session").then(() => {
-    copied.value = true;
-    setTimeout(() => { copied.value = false; }, 2000);
-  }).catch(() => {
-    // fallback: select the code element manually
-    copied.value = true;
-    setTimeout(() => { copied.value = false; }, 2000);
-  });
-}
-
-function parseSessionJson(raw: string): void {
-  parsedInfo.value = null;
-  if (!raw.trim()) return;
-  try {
-    const data = JSON.parse(raw.trim());
-    // ChatGPT session JSON: { user: {id, name, email}, expires, accessToken, sessionToken, account: {planType} }
-    const accessToken = data.accessToken ?? data.access_token ?? "";
-    if (!accessToken) {
-      toast.error("JSON 中未找到 accessToken");
-      return;
+  // 自动选中唯一的匹配供应商
+  const preset = oauthTypes.find((o) => o.id === selectedOauthType.value);
+  if (preset) {
+    const matching = providers.value.filter((p) =>
+      p.base_url?.toLowerCase().includes(preset.baseUrlPattern),
+    );
+    if (matching.length === 1) {
+      oauthProviderId.value = matching[0].id;
     }
-    const sessionToken = data.sessionToken ?? data.refresh_token;
-    const user = data.user ?? {};
-    const account = data.account ?? {};
-    const expires = data.expires ?? data.expires_at;
-
-    // Parse JWT accessToken for plan type if not in top-level
-    let planType = account.planType ?? account.plan_type ?? "";
-    if (!planType && accessToken.includes(".")) {
-      try {
-        const parts = accessToken.split(".");
-        const jwt = JSON.parse(atob(parts[1]));
-        const codexAuth = jwt["https://api.openai.com/auth"];
-        if (codexAuth?.chatgpt_plan_type) {
-          planType = codexAuth.chatgpt_plan_type;
-        }
-      } catch { /* ignore JWT parse errors */ }
-    }
-
-    parsedInfo.value = {
-      accessToken,
-      sessionToken,
-      email: user.email ?? "",
-      planType,
-      userName: user.name ?? user.id ?? "",
-      userId: user.id ?? "",
-      expiresAt: expires ?? "",
-    };
-    toast.success(t("auths.oauthParseSuccess"));
-  } catch {
-    toast.warning("JSON 格式错误，请粘贴有效的 Session JSON");
   }
 }
 
-const oauthPreview = computed(() => {
-  const p = parsedInfo.value;
-  if (!p) return null;
-  const planLabel: Record<string, string> = {
-    free: "Free",
-    plus: "Plus",
-    pro: "Pro",
-    team: "Team",
-    enterprise: "Enterprise",
-  };
-  return {
-    email: p.email || "-",
-    plan: (planLabel[p.planType?.toLowerCase() ?? ""] ?? p.planType) || "-",
-    expires: p.expiresAt ? new Date(p.expiresAt).toLocaleString() : "-",
-    isFree: (p.planType?.toLowerCase() ?? "") === "free",
-  };
+/** 当前选中的 OAuth 类型的 flowType */
+const selectedFlowType = computed(() => {
+  const preset = oauthTypes.find((o) => o.id === selectedOauthType.value);
+  return preset?.flowType ?? null;
 });
 
+// ── Codex OAuth 流程 ──
+
+async function startCodexOAuth() {
+  if (!oauthProviderId.value) {
+    toast.error($t("auths.codexMissingProvider"));
+    return;
+  }
+
+  codexOAuthStatus.value = "authorizing";
+  codexOAuthError.value = "";
+
+  const res = await api.get<{ url: string; state: string }>(
+    `/api/oauth/codex/authorize?provider_id=${encodeURIComponent(oauthProviderId.value)}`,
+  );
+
+  if (!res.success) {
+    codexOAuthStatus.value = "error";
+    codexOAuthError.value = res.error ?? $t("auths.codexOAuthUrlError");
+    toast.error(codexOAuthError.value);
+    return;
+  }
+
+  const { url, state } = res.data;
+  codexOAuthState.value = state;
+  codexOAuthUrl.value = url;
+
+  // Open the auth URL — desktop: send to host to open system browser; web: new tab
+  if (isDesktop && (window as any).__electrobunSendToHost) {
+    (window as any).__electrobunSendToHost({ type: "open-url", url });
+  } else {
+    window.open(url, "_blank");
+  }
+
+  // Start polling for completion
+  if (codexPollTimer) clearInterval(codexPollTimer);
+  codexPollTimer = setInterval(async () => {
+    const statusRes = await api.get<{
+      data: { status: string; error?: string };
+    }>(`/api/oauth/codex/status?state=${encodeURIComponent(state)}`);
+
+    if (!statusRes.success) return;
+
+    const { status, error } = statusRes.data;
+    if (status === "completed") {
+      codexOAuthStatus.value = "completed";
+      if (codexPollTimer) {
+        clearInterval(codexPollTimer);
+        codexPollTimer = null;
+      }
+      toast.success($t("auths.codexAuthSuccess"));
+      await fetchAuths();
+      // Auto-close modal after 1.5s
+      setTimeout(() => {
+        showAddModal.value = false;
+        resetOAuthForm();
+      }, 1500);
+    } else if (status === "error") {
+      codexOAuthStatus.value = "error";
+      codexOAuthError.value = error ?? $t("auths.codexAuthFailed");
+      if (codexPollTimer) {
+        clearInterval(codexPollTimer);
+        codexPollTimer = null;
+      }
+      toast.error(codexOAuthError.value);
+    }
+    // "pending" → keep polling
+  }, 1500);
+}
+
+function copyCodexUrl() {
+  navigator.clipboard
+    .writeText(codexOAuthUrl.value)
+    .then(() => {
+      codexUrlCopied.value = true;
+      setTimeout(() => {
+        codexUrlCopied.value = false;
+      }, 5000);
+    })
+    .catch(() => {
+      codexUrlCopied.value = true;
+      setTimeout(() => {
+        codexUrlCopied.value = false;
+      }, 5000);
+    });
+}
+
 async function fetchProviders() {
-  const res = await api.get<{ data: { id: string; name: string; base_url?: string }[] }>("/api/providers");
+  // 先拉取模板（后端自动 seed 新增供应商）
+  await api.get("/api/templates");
+
+  const res = await api.get<{
+    data: { id: string; name: string; base_url?: string }[];
+  }>("/api/providers");
   if (res.success) {
     const list = res.data.data ?? (res.data as any);
-    providers.value = list.map((p: any) => ({ id: p.id, name: p.name, base_url: p.base_url }));
+    providers.value = list.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      base_url: p.base_url,
+    }));
   }
 }
 
 async function fetchAuths() {
-  const res = await api.get<{ data: { id: string; name: string }[] }>("/api/providers");
+  const res = await api.get<{ data: { id: string; name: string }[] }>(
+    "/api/providers",
+  );
   if (!res.success) {
     toast.error(t("auths.getProvidersFailed"));
     return;
@@ -181,7 +269,9 @@ async function fetchAuths() {
   if (statsRes.success) {
     const stats = statsRes.data.data ?? statsRes.data;
     if (Array.isArray(stats.rate_limited_auths)) {
-      rateLimitedAuths.push(...stats.rate_limited_auths.map((r: any) => r.auth_key));
+      rateLimitedAuths.push(
+        ...stats.rate_limited_auths.map((r: any) => r.auth_key),
+      );
     }
   }
 
@@ -189,7 +279,12 @@ async function fetchAuths() {
   const items: AuthDisplay[] = [];
   for (const p of list) {
     const authRes = await api.get<{
-      data: Array<{ key: string; name?: string; auth_type?: string; oauth_metadata?: string }>;
+      data: Array<{
+        key: string;
+        name?: string;
+        auth_type?: string;
+        oauth_metadata?: string;
+      }>;
     }>(`/api/providers/${p.id}/auths`);
     if (authRes.success) {
       const auths = authRes.data.data ?? (authRes.data as any);
@@ -235,46 +330,113 @@ async function addAuth() {
   }
 }
 
-async function importOAuth() {
+// ── Codex JSON 导入 ──
+// Codex JSON 格式：{access_token, refresh_token, id_token, email, expired, account_id, type}
+// 例如 CPA 导出的 codex-xxx@example.com-free.json 文件
+
+function parseCodexJson(raw: string): void {
+  codexParsedInfo.value = null;
+  if (!raw.trim()) return;
+  try {
+    const data = JSON.parse(raw.trim());
+    const accessToken = data.access_token ?? data.accessToken ?? "";
+    if (!accessToken) {
+      toast.error($t("auths.codexNoAccessToken"));
+      return;
+    }
+
+    // Parse JWT for plan type
+    let planType = "";
+    if (accessToken.includes(".")) {
+      try {
+        const parts = accessToken.split(".");
+        const jwt = JSON.parse(atob(parts[1]));
+        const codexAuth = jwt["https://api.openai.com/auth"];
+        if (codexAuth?.chatgpt_plan_type) {
+          planType = codexAuth.chatgpt_plan_type;
+        }
+      } catch {
+        /* ignore JWT parse errors */
+      }
+    }
+
+    codexParsedInfo.value = {
+      accessToken,
+      sessionToken: data.refresh_token ?? data.sessionToken,
+      email: data.email ?? "",
+      planType: planType || data.plan_type || "",
+      expiresAt: data.expired ?? data.expires ?? "",
+    };
+    toast.success($t("auths.codexParseSuccess"));
+  } catch {
+    toast.warning($t("auths.codexParseError"));
+  }
+}
+
+async function importCodexJson() {
   if (!oauthProviderId.value) {
     toast.error(t("auths.providerRequired"));
     return;
   }
-  if (!parsedInfo.value) {
-    toast.error("请先粘贴 Session JSON 并等待解析完成");
+  if (!codexParsedInfo.value) {
+    toast.error($t("auths.codexPasteFirst"));
+    return;
+  }
+
+  // 校验必要字段
+  if (!codexParsedInfo.value.accessToken) {
+    toast.error($t("auths.codexNoAccessToken"));
+    return;
+  }
+  // access_token 应该是 JWT 格式（三段式）
+  if (codexParsedInfo.value.accessToken.split(".").length !== 3) {
+    toast.error($t("auths.codexInvalidJwt"));
     return;
   }
 
   const res = await api.post("/api/oauth/import", {
     provider_id: oauthProviderId.value,
-    access_token: parsedInfo.value.accessToken,
-    refresh_token: parsedInfo.value.sessionToken || undefined,
-    email: parsedInfo.value.email || undefined,
-    plan_type: parsedInfo.value.planType || undefined,
-    expires_at: parsedInfo.value.expiresAt || undefined,
+    access_token: codexParsedInfo.value.accessToken,
+    refresh_token: codexParsedInfo.value.sessionToken || undefined,
+    email: codexParsedInfo.value.email || undefined,
+    plan_type: codexParsedInfo.value.planType || undefined,
+    expires_at: codexParsedInfo.value.expiresAt || undefined,
     name: oauthName.value.trim() || undefined,
   });
   if (res.success) {
-    toast.success(t("auths.oauthImportSuccess"));
+    toast.success($t("auths.codexImportSuccess"));
     showAddModal.value = false;
     resetOAuthForm();
     await fetchAuths();
   } else {
-    toast.error(res.error ?? t("auths.oauthImportFailed"));
+    toast.error(res.error ?? $t("auths.codexImportFailed"));
   }
 }
 
 function resetOAuthForm() {
   selectedOauthType.value = "";
   oauthProviderId.value = "";
-  oauthSessionJson.value = "";
   oauthName.value = "";
-  parsedInfo.value = null;
+  codexJsonInput.value = "";
+  codexParsedInfo.value = null;
+  codexSubTab.value = "oauth";
+  codexOAuthStatus.value = "idle";
+  codexOAuthState.value = "";
+  codexOAuthUrl.value = "";
+  codexOAuthError.value = "";
+  codexUrlCopied.value = false;
+  if (codexPollTimer) {
+    clearInterval(codexPollTimer);
+    codexPollTimer = null;
+  }
 }
 
 async function deleteAuth(providerId: string, key: string) {
-  if (!confirm(t("confirm.deleteMessage", { key: key.slice(0, 6) + "..." }))) return;
-  const res = await api.remove(`/api/providers/${providerId}/auths/${encodeURIComponent(key)}`);
+  if (!confirm(t("confirm.deleteMessage", { key: key.slice(0, 6) + "..." })))
+    return;
+  const res = await api.remove(
+    `/api/providers/${providerId}/auths/${encodeURIComponent(key)}`,
+  );
   if (res.success) {
     toast.success(t("auths.deleteSuccess"));
     await fetchAuths();
@@ -459,13 +621,13 @@ onMounted(() => {
       <div v-else class="space-y-4">
         <!-- OAuth 类型选择 -->
         <div>
-          <label class="form-label">OAuth 类型</label>
+          <label class="form-label">{{ $t("auths.oauthType") }}</label>
           <select
             v-model="selectedOauthType"
             class="select"
             @change="onOauthTypeChange"
           >
-            <option value="">请选择 OAuth 类型</option>
+            <option value="">{{ $t("auths.selectOAuthType") }}</option>
             <option v-for="ot in oauthTypes" :key="ot.id" :value="ot.id">{{ ot.label }}</option>
           </select>
         </div>
@@ -477,62 +639,171 @@ onMounted(() => {
             v-model="oauthProviderId"
             class="select"
           >
-            <option value="">请选择供应商</option>
+            <option value="">{{ $t("auths.selectProvider") }}</option>
             <option v-for="p in filteredProviders" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
           </select>
-          <p v-if="filteredProviders.length === 0" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-            没有匹配的供应商。请先在「供应商」页面创建一个 base_url 包含 <code class="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">{{ oauthTypes.find(o => o.id === selectedOauthType)?.baseUrlPattern }}</code> 的供应商。
-          </p>
+          <p v-if="filteredProviders.length === 0" class="text-xs text-amber-600 dark:text-amber-400 mt-1" v-html="$t('auths.noProviderMatch', { pattern: oauthTypes.find(o => o.id === selectedOauthType)?.baseUrlPattern })" />
         </div>
 
-        <!-- 引导卡片（选择类型后即可见） -->
-        <div v-if="selectedOauthType" class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-          <div class="text-sm font-semibold text-indigo-800 dark:text-indigo-200 mb-2 flex items-center gap-1.5">
-            <span class="i-tabler-brand-openai text-base" />
-            {{ selectedOauthTypeLabel }} 导入步骤
+        <!-- Codex 流程：支持粘贴 JSON 或 OAuth 授权 -->
+        <template v-if="selectedFlowType === 'codex'">
+          <!-- 子 Tab：OAuth / 粘贴 -->
+          <div class="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+            <button
+              class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+              :class="codexSubTab === 'oauth'
+                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
+              @click="codexSubTab = 'oauth'"
+            >
+              {{ $t("auths.codexOAuthTab") }}
+            </button>
+            <button
+              class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+              :class="codexSubTab === 'paste'
+                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
+              @click="codexSubTab = 'paste'"
+            >
+              {{ $t("auths.codexPasteTab") }}
+            </button>
           </div>
-          <div class="space-y-2.5 text-sm text-indigo-700 dark:text-indigo-300">
-            <div class="flex gap-2.5">
-              <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">1</span>
-              <div>
-                <span class="font-medium">登录并打开 Session 页面</span>
-                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">浏览器访问以下地址（确保已登录）：</p>
-                <code class="block mt-1 bg-indigo-100 dark:bg-indigo-800/60 px-2 py-1 rounded text-xs font-mono select-all">https://chatgpt.com/api/auth/session</code>
-              </div>
-            </div>
-            <div class="flex gap-2.5">
-              <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">2</span>
-              <div>
-                <span class="font-medium">复制返回的 JSON</span>
-                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">全选（Cmd+A）并复制（Cmd+C）完整的 JSON 文本</p>
-              </div>
-            </div>
-            <div class="flex gap-2.5">
-              <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-700 dark:text-indigo-200 flex items-center justify-center text-xs font-bold mt-0.5">3</span>
-              <div>
-                <span class="font-medium">粘贴到下方文本框</span>
-                <p class="text-indigo-500 dark:text-indigo-400 text-xs mt-0.5">系统会自动解析你的账号信息</p>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Session JSON 粘贴框（选择类型后即可用） -->
-        <div v-if="selectedOauthType">
-          <label class="form-label flex items-center gap-1.5">
-            Session JSON
-            <span v-if="parsedInfo" class="text-green-600 dark:text-green-400 text-xs font-normal flex items-center gap-0.5">
-              <span class="i-tabler-circle-check text-xs" /> 解析成功
-            </span>
-          </label>
-          <textarea
-            v-model="oauthSessionJson"
-            class="input font-mono text-xs h-36 resize-y"
-            :class="parsedInfo ? 'border-green-300 dark:border-green-700 focus:border-green-500' : ''"
-            placeholder='访问 https://chatgpt.com/api/auth/session 后，将浏览器显示的完整 JSON 粘贴到这里……'
-            @input="parseSessionJson(oauthSessionJson)"
-          />
-        </div>
+          <!-- OAuth 授权子页面（默认） -->
+          <template v-if="codexSubTab === 'oauth'">
+            <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+              <div class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-2 flex items-center gap-1.5">
+                <span class="i-tabler-brand-openai text-base" />
+                {{ $t("auths.codexOAuthTitle") }}
+              </div>
+              <div class="space-y-2 text-sm text-purple-700 dark:text-purple-300">
+                <p>{{ $t("auths.codexOAuthDesc") }}</p>
+                <div class="flex gap-2.5">
+                  <span class="flex-shrink-0 w-5 h-5 rounded-full bg-purple-200 dark:bg-purple-700 text-purple-700 dark:text-purple-200 flex items-center justify-center text-xs font-bold mt-0.5">1</span>
+                  <div>
+                    <span class="font-medium">{{ $t("auths.codexOAuthStep1") }}</span>
+                    <p class="text-purple-500 dark:text-purple-400 text-xs mt-0.5">{{ isDesktop ? $t('auths.codexOAuthStep1Desc') : $t('auths.codexOAuthStep1DescBrowser') }}</p>
+                  </div>
+                </div>
+                <div class="flex gap-2.5">
+                  <span class="flex-shrink-0 w-5 h-5 rounded-full bg-purple-200 dark:bg-purple-700 text-purple-700 dark:text-purple-200 flex items-center justify-center text-xs font-bold mt-0.5">2</span>
+                  <div>
+                    <span class="font-medium">{{ $t("auths.codexOAuthStep2") }}</span>
+                    <p class="text-purple-500 dark:text-purple-400 text-xs mt-0.5">{{ $t("auths.codexOAuthStep2Desc") }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 授权状态 -->
+            <div v-if="codexOAuthStatus === 'authorizing'" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div class="text-center mb-3">
+                <div class="i-tabler-loader-3 text-2xl text-blue-500 animate-spin mx-auto mb-2" />
+                <p class="text-sm text-blue-700 dark:text-blue-300">{{ $t("auths.codexOAuthWaiting") }}</p>
+              </div>
+              <div class="bg-white dark:bg-blue-950/40 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                <p class="text-xs text-blue-500 dark:text-blue-400 mb-1.5">{{ $t("auths.codexOAuthManual") }}</p>
+                <div class="flex items-center gap-1.5">
+                  <code class="flex-1 text-xs font-mono bg-blue-100 dark:bg-blue-900/60 px-2 py-1.5 rounded truncate select-all">{{ codexOAuthUrl }}</code>
+                  <button
+                    class="flex-shrink-0 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                    :class="codexUrlCopied ? 'bg-green-200 text-green-700 dark:bg-green-800 dark:text-green-300' : 'bg-blue-200 text-blue-700 hover:bg-blue-300 dark:bg-blue-700 dark:text-blue-200 dark:hover:bg-blue-600'"
+                    @click="copyCodexUrl"
+                  >
+                    <span v-if="codexUrlCopied" class="i-tabler-check text-sm" />
+                    <span v-else class="i-tabler-copy text-sm" />
+                    {{ codexUrlCopied ? $t('auths.codexCopied') : $t('auths.codexCopy') }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="codexOAuthStatus === 'completed'" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
+              <span class="i-tabler-circle-check text-2xl text-green-500 mx-auto block mb-1" />
+              <p class="text-sm font-medium text-green-700 dark:text-green-300">{{ $t("auths.codexOAuthSuccess") }}</p>
+            </div>
+            <div v-else-if="codexOAuthStatus === 'error'" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-center">
+              <span class="i-tabler-alert-circle text-2xl text-red-500 mx-auto block mb-1" />
+              <p class="text-sm font-medium text-red-700 dark:text-red-300">{{ $t("auths.codexOAuthFailed") }}</p>
+              <p class="text-xs text-red-500 dark:text-red-400 mt-1">{{ codexOAuthError }}</p>
+            </div>
+
+            <div v-if="(codexOAuthStatus === 'idle' || codexOAuthStatus === 'error') && codexSubTab === 'oauth'" class="flex items-center justify-center py-4">
+              <button
+                class="btn-primary"
+                :disabled="!oauthProviderId || codexOAuthStatus === 'authorizing'"
+                @click="startCodexOAuth"
+              >
+                <span class="i-tabler-brand-openai text-sm mr-1" />
+                {{ $t("auths.codexOAuthBtn") }}
+              </button>
+            </div>
+          </template>
+
+          <!-- 粘贴 JSON 子页面 -->
+          <template v-if="codexSubTab === 'paste'">
+            <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+              <div class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-2 flex items-center gap-1.5">
+                <span class="i-tabler-file-text text-base" />
+                {{ $t("auths.codexPasteTitle") }}
+              </div>
+              <div class="space-y-2 text-sm text-purple-700 dark:text-purple-300">
+                <p v-html="$t('auths.codexPasteDesc')" />
+                <div class="flex gap-2.5">
+                  <span class="flex-shrink-0 w-5 h-5 rounded-full bg-purple-200 dark:bg-purple-700 text-purple-700 dark:text-purple-200 flex items-center justify-center text-xs font-bold mt-0.5">1</span>
+                  <div>
+                    <span class="font-medium">{{ $t("auths.codexPasteStep1") }}</span>
+                    <p class="text-purple-500 dark:text-purple-400 text-xs mt-0.5" v-html="$t('auths.codexPasteStep1Desc')" />
+                  </div>
+                </div>
+                <div class="flex gap-2.5">
+                  <span class="flex-shrink-0 w-5 h-5 rounded-full bg-purple-200 dark:bg-purple-700 text-purple-700 dark:text-purple-200 flex items-center justify-center text-xs font-bold mt-0.5">2</span>
+                  <div>
+                    <span class="font-medium">{{ $t("auths.codexPasteStep2") }}</span>
+                    <p class="text-purple-500 dark:text-purple-400 text-xs mt-0.5">{{ $t("auths.codexPasteStep2Desc") }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label flex items-center gap-1.5">
+                Codex JSON
+                <span v-if="codexParsedInfo" class="text-green-600 dark:text-green-400 text-xs font-normal flex items-center gap-0.5">
+                  <span class="i-tabler-circle-check text-xs" /> {{ $t("auths.parseSuccess") }}
+                </span>
+              </label>
+              <textarea
+                v-model="codexJsonInput"
+                class="input font-mono text-xs h-36 resize-y"
+                :class="codexParsedInfo ? 'border-green-300 dark:border-green-700 focus:border-green-500' : ''"
+                :placeholder="$t('auths.codexPlaceholder')"
+                @input="parseCodexJson(codexJsonInput)"
+              />
+            </div>
+
+            <!-- 解析结果预览 -->
+            <div v-if="codexParsedInfo" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-sm">
+              <div class="font-medium text-green-800 dark:text-green-200 mb-2 flex items-center gap-1.5">
+                <span class="i-tabler-user-check text-base" />
+                {{ $t("auths.recognizedInfo") }}
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-green-700 dark:text-green-300">
+                <div>
+                  <span class="text-green-500 dark:text-green-400 text-xs">{{ $t("auths.email") }}</span>
+                  <div class="font-mono text-xs truncate">{{ codexParsedInfo.email || '-' }}</div>
+                </div>
+                <div>
+                  <span class="text-green-500 dark:text-green-400 text-xs">{{ $t("auths.plan") }}</span>
+                  <div class="font-mono text-xs">{{ codexParsedInfo.planType || '-' }}</div>
+                </div>
+                <div class="col-span-2">
+                  <span class="text-green-500 dark:text-green-400 text-xs">{{ $t("auths.expires") }}</span>
+                  <div class="font-mono text-xs">{{ codexParsedInfo.expiresAt ? new Date(codexParsedInfo.expiresAt).toLocaleString() : '-' }}</div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </template>
 
         <!-- 名称（可选） -->
         <div>
@@ -542,33 +813,7 @@ onMounted(() => {
             type="text"
             class="input"
             :placeholder="$t('auths.namePlaceholder')"
-            :disabled="!parsedInfo"
           />
-        </div>
-
-        <!-- 解析结果预览 -->
-        <div v-if="oauthPreview" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-sm">
-          <div class="font-medium text-green-800 dark:text-green-200 mb-2 flex items-center gap-1.5">
-            <span class="i-tabler-user-check text-base" />
-            已识别账号信息
-          </div>
-          <div class="grid grid-cols-2 gap-2 text-green-700 dark:text-green-300">
-            <div>
-              <span class="text-green-500 dark:text-green-400 text-xs">邮箱</span>
-              <div class="font-mono text-xs truncate">{{ oauthPreview.email }}</div>
-            </div>
-            <div>
-              <span class="text-green-500 dark:text-green-400 text-xs">套餐</span>
-              <div class="flex items-center gap-1 mt-0.5">
-                <span class="inline-block w-1.5 h-1.5 rounded-full" :class="oauthPreview.isFree ? 'bg-gray-400' : 'bg-green-500'" />
-                <span class="font-medium">{{ oauthPreview.plan }}</span>
-              </div>
-            </div>
-            <div class="col-span-2">
-              <span class="text-green-500 dark:text-green-400 text-xs">Token 过期时间</span>
-              <div class="font-mono text-xs">{{ oauthPreview.expires }}</div>
-            </div>
-          </div>
         </div>
 
         <div class="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
@@ -579,11 +824,12 @@ onMounted(() => {
             {{ $t("common.cancel") }}
           </button>
           <button
+            v-if="selectedFlowType === 'codex' && codexSubTab === 'paste'"
             class="btn-primary"
-            :disabled="!parsedInfo"
-            @click="importOAuth"
+            :disabled="!codexParsedInfo"
+            @click="importCodexJson"
           >
-            {{ $t("common.save") }}
+            {{ $t("auths.importBtn") }}
           </button>
         </div>
       </div>

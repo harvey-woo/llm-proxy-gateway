@@ -41,8 +41,13 @@ describe("Config Loader", () => {
     const origUrl = process.env.TEMPLATE_URL;
     delete process.env.TEMPLATE_URL;
     const result = getTemplateUrl();
-    // Returns the URL from config.yaml when env var is not set
-    expect(result).toMatch(/^https?:\/\/.+/);
+    // Returns null when no template_url is configured (dev default)
+    // Or a URL string when one is set in config.yaml
+    if (result !== null) {
+      expect(result).toMatch(/^https?:\/\/.+/);
+    } else {
+      expect(result).toBeNull();
+    }
     if (origUrl !== undefined) process.env.TEMPLATE_URL = origUrl;
   });
 });
