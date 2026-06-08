@@ -7,6 +7,7 @@ import { useToast } from "../composables/useToast";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import EmptyState from "../components/EmptyState.vue";
 import AppModal from "../components/AppModal.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 interface AuthDisplay {
   provider_id: string;
@@ -96,6 +97,23 @@ const oauthName = ref("");
 
 // Codex sub-tab: "paste" or "oauth"
 const codexSubTab = ref<"oauth" | "paste">("oauth");
+
+// Confirm dialog state (ElectroBun doesn't support native confirm())
+const deleteConfirm = ref<{
+  show: boolean;
+  providerId: string;
+  key: string;
+}>({ show: false, providerId: "", key: "" });
+
+function confirmDelete(providerId: string, key: string) {
+  deleteConfirm.value = { show: true, providerId, key };
+}
+
+function handleDeleteConfirmed() {
+  const { providerId, key } = deleteConfirm.value;
+  deleteConfirm.value = { show: false, providerId: "", key: "" };
+  doDeleteAuth(providerId, key);
+}
 
 // Codex JSON paste
 const codexJsonInput = ref("");
@@ -462,9 +480,7 @@ function resetOAuthForm() {
   }
 }
 
-async function deleteAuth(providerId: string, key: string) {
-  if (!confirm(t("confirm.deleteMessage", { key: key.slice(0, 6) + "..." })))
-    return;
+async function doDeleteAuth(providerId: string, key: string) {
   const res = await api.remove(
     `/api/providers/${providerId}/auths/${encodeURIComponent(key)}`,
   );
@@ -666,7 +682,7 @@ watch(showAddModal, (open) => {
               <button
                 class="btn-danger"
                 data-testid="auth-delete-btn"
-                @click="deleteAuth(a.provider_id, a.key)"
+                @click="confirmDelete(a.provider_id, a.key)"
               >
                 {{ $t("common.delete") }}
               </button>
@@ -997,5 +1013,17 @@ watch(showAddModal, (open) => {
         </div>
       </div>
     </AppModal>
+
+    <!-- Delete Confirmation -->
+    <ConfirmDialog
+      :open="deleteConfirm.show"
+      :title="$t('confirm.deleteTitle')"
+      :message="$t('confirm.deleteMessage', { key: deleteConfirm.key.slice(0, 6) + '...' })"
+      confirm-text="删除"
+      confirm-class="bg-red-600 hover:bg-red-700 text-white"
+      @confirm="handleDeleteConfirmed"
+      @cancel="deleteConfirm = { show: false, providerId: '', key: '' }"
+      @update:open="deleteConfirm.show = $event"
+    />
   </div>
 </template>
