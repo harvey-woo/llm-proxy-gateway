@@ -73,7 +73,7 @@ export function createOAuthRoutes(
     });
 
     // 启动临时回调服务器（port 1455）
-    if (!startCodexCallbackServer()) {
+    if (!(await startCodexCallbackServer())) {
       return c.json({
         success: false,
         error: "端口 1455 已被占用，无法启动 Codex OAuth 回调服务。请释放该端口后重试。",

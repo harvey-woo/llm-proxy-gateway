@@ -1,6 +1,9 @@
 import { randomBytes, createHash } from "node:crypto";
-import type { ServerType } from "@hono/node-server";
-import { serve } from "@hono/node-server";
+
+// 注意：@hono/node-server 不可在模块级导入！
+// 在 Bun 环境中，@hono/node-server 的 Response 封装会破坏 Bun.serve 的 Response 识别，
+// 导致 Hono 的 c.json() 返回值被 Bun 拒绝为 "Response (lightweight)"。
+// 改为在 startCodexCallbackServer() 内部按需导入。
 
 // ============================================================
 // Codex OAuth 2.0 PKCE Flow — Session Store & Helpers
@@ -28,7 +31,7 @@ import { serve } from "@hono/node-server";
 
 const CODEX_CALLBACK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
-let codexCallbackServer: ServerType | null = null;
+let codexCallbackServer: unknown = null;
 let codexAppFetch: ((req: Request) => Promise<Response>) | null = null;
 let codexCallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -52,7 +55,7 @@ function resetCallbackTimeout(): void {
  * Start a temporary HTTP server on port 1455 to receive the OAuth callback.
  * Returns true on success (or already running), false if port is already in use.
  */
-export function startCodexCallbackServer(): boolean {
+export async function startCodexCallbackServer(): Promise<boolean> {
   if (codexCallbackServer) {
     // 已运行，重置超时
     resetCallbackTimeout();
@@ -65,17 +68,28 @@ export function startCodexCallbackServer(): boolean {
   }
 
   try {
-    codexCallbackServer = serve(
-      { fetch: codexAppFetch, port: 1455 },
-      () => {
-        console.log("[oauth] Codex OAuth callback server started on port 1455");
-      },
-    );
+    if (typeof Bun !== "undefined") {
+      // Bun 环境：直接使用 Bun.serve，避免 @hono/node-server 的 Response 封装
+      codexCallbackServer = Bun.serve({
+        fetch: codexAppFetch,
+        port: 1455,
+      });
+      console.log("[oauth] Codex OAuth callback server started on port 1455");
+    } else {
+      // Node 环境：使用 @hono/node-server
+      const { serve } = await import("@hono/node-server");
+      codexCallbackServer = serve(
+        { fetch: codexAppFetch, port: 1455 },
+        () => {
+          console.log("[oauth] Codex OAuth callback server started on port 1455");
+        },
+      ) as unknown;
+    }
     resetCallbackTimeout();
     return true;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("EADDRINUSE") || msg.includes("listen")) {
+    if (msg.includes("EADDRINUSE") || msg.includes("listen") || msg.includes("port")) {
       console.warn("[oauth] Port 1455 is already in use — cannot start Codex OAuth callback server");
     } else {
       console.error("[oauth] Failed to start Codex OAuth callback server:", msg);
@@ -95,7 +109,7 @@ export function stopCodexCallbackServer(): void {
   }
   if (codexCallbackServer) {
     try {
-      codexCallbackServer.close();
+      (codexCallbackServer as any).close();
     } catch { /* ignore close errors */ }
     codexCallbackServer = null;
     console.log("[oauth] Codex OAuth callback server stopped");
