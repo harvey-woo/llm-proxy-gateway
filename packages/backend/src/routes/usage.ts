@@ -227,6 +227,14 @@ export function createUsageRoutes(
                 });
                 if (match && match.max > 0) {
                   match.used = Math.round((match.max * uw.usedPct) / 100);
+                } else {
+                  // 没有匹配的本地 rate_limit — 直接显示上游百分比
+                  usage.push({
+                    type: "weighted_requests",
+                    period: humanPeriod(uw.seconds),
+                    used: uw.usedPct,
+                    max: 100,
+                  });
                 }
               }
             }
