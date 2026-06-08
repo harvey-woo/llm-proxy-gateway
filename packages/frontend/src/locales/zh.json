@@ -225,7 +225,7 @@
   "auths.codexPasteTitle": "导入 Codex JSON",
   "auths.codexPasteDesc": "将 Codex JSON 文件内容粘贴到下方（例如 CPA 导出的 <code>codex-xxx.json</code>）：",
   "auths.codexPasteStep1": "打开 codex JSON 文件",
-  "auths.codexPasteStep1Desc": "如 <code>codex-user@example.com-free.json</code>（包含 access_token、refresh_token 等字段）",
+  "auths.codexPasteStep1Desc": "如 <code>codex-user&#64;example.com-free.json</code>（包含 access_token、refresh_token 等字段）", 
   "auths.codexPasteStep2": "复制全部内容并粘贴到下方文本框",
   "auths.codexPasteStep2Desc": "系统会自动解析账号信息并导入",
   "auths.codexCopied": "已复制",

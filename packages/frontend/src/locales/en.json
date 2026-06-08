@@ -225,7 +225,7 @@
   "auths.codexPasteTitle": "Import Codex JSON",
   "auths.codexPasteDesc": "Paste Codex JSON file contents below (e.g. from CPA exported <code>codex-xxx.json</code>):",
   "auths.codexPasteStep1": "Open codex JSON file",
-  "auths.codexPasteStep1Desc": "e.g. <code>codex-user@example.com-free.json</code> (contains access_token, refresh_token, etc.)",
+  "auths.codexPasteStep1Desc": "e.g. <code>codex-user&#64;example.com-free.json</code> (contains access_token, refresh_token, etc.)", 
   "auths.codexPasteStep2": "Copy all content and paste into the textarea below",
   "auths.codexPasteStep2Desc": "System will auto-parse account info and import",
   "auths.codexCopied": "Copied",

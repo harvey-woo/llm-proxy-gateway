@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { StoreState } from "./admin.js";
 import { getDb } from "../db/database.js";
 import { randomUUID } from "node:crypto";
@@ -91,10 +91,12 @@ export function createOAuthRoutes(
   });
 
   // ============================================================
-  // GET /api/oauth/codex/callback
+  // GET /auth/callback 和 /api/oauth/codex/callback
   // OpenAI 回调处理：交换授权码获取 token，存入数据库
+  // 注意：redirect_uri 固定为 http://localhost:1455/auth/callback（CPA OAuth app 注册地址）
+  // 因此需要在 /auth/callback 和 /api/oauth/codex/callback 两个路径都注册处理函数
   // ============================================================
-  router.get("/api/oauth/codex/callback", async (c) => {
+  async function handleCodexCallback(c: Context) {
     const code = c.req.query("code");
     const state = c.req.query("state");
     const error = c.req.query("error");
@@ -207,7 +209,13 @@ export function createOAuthRoutes(
       stopCodexCallbackServer();
       return c.html(errorPage("Token 交换失败", msg));
     }
-  });
+  }
+
+  // 注册回调处理到两个路径：
+  // - /auth/callback: 这是 redirect_uri 中的实际路径（固定为 CPA OAuth app 注册地址）
+  // - /api/oauth/codex/callback: API 调试路径
+  router.get("/auth/callback", handleCodexCallback);
+  router.get("/api/oauth/codex/callback", handleCodexCallback);
 
   // ============================================================
   // GET /api/oauth/codex/status?state=xxx

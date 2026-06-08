@@ -580,7 +580,7 @@ watch(showAddModal, (open) => {
           {{ $t("auths.refreshUsage") }}
         </button>
         <button
-          class="btn-primary btn-sm"
+          class="btn-primary"
           data-testid="auth-add-btn"
           @click="openAddModal"
         >
@@ -681,7 +681,7 @@ watch(showAddModal, (open) => {
       <!-- Tabs -->
       <div class="flex border-b border-gray-200 dark:border-gray-700 mb-4">
         <button
-          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer"
           :class="activeTab === 'api_key'
             ? 'border-blue-500 text-blue-600 dark:text-blue-400'
             : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
@@ -690,7 +690,7 @@ watch(showAddModal, (open) => {
           {{ $t("auths.addTabApiKey") }}
         </button>
         <button
-          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+          class="px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer"
           :class="activeTab === 'oauth'
             ? 'border-blue-500 text-blue-600 dark:text-blue-400'
             : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
@@ -784,7 +784,7 @@ watch(showAddModal, (open) => {
           <!-- 子 Tab：OAuth / 粘贴 -->
           <div class="flex border-b border-gray-200 dark:border-gray-700 mb-4">
             <button
-              class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+              class="px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer"
               :class="codexSubTab === 'oauth'
                 ? 'border-purple-500 text-purple-600 dark:text-purple-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
@@ -793,7 +793,7 @@ watch(showAddModal, (open) => {
               {{ $t("auths.codexOAuthTab") }}
             </button>
             <button
-              class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+              class="px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer"
               :class="codexSubTab === 'paste'
                 ? 'border-purple-500 text-purple-600 dark:text-purple-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
@@ -838,9 +838,9 @@ watch(showAddModal, (open) => {
               <div class="bg-white dark:bg-blue-950/40 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
                 <p class="text-xs text-blue-500 dark:text-blue-400 mb-1.5">{{ $t("auths.codexOAuthManual") }}</p>
                 <div class="flex items-center gap-1.5">
-                  <code class="flex-1 text-xs font-mono bg-blue-100 dark:bg-blue-900/60 px-2 py-1.5 rounded truncate select-all leading-normal">{{ codexOAuthUrl }}</code>
+                  <code class="flex-1 text-xs font-mono bg-blue-100 dark:bg-blue-900/60 px-2 rounded truncate select-all h-7 leading-none inline-flex items-center">{{ codexOAuthUrl }}</code>
                   <button
-                    class="flex-shrink-0 px-2 py-1.5 rounded text-xs font-medium transition-colors leading-normal"
+                    class="flex-shrink-0 px-2 rounded text-xs font-medium transition-colors h-7 inline-flex items-center gap-1"
                     :class="codexUrlCopied ? 'bg-green-200 text-green-700 dark:bg-green-800 dark:text-green-300' : 'bg-blue-200 text-blue-700 hover:bg-blue-300 dark:bg-blue-700 dark:text-blue-200 dark:hover:bg-blue-600'"
                     @click="copyCodexUrl"
                   >

@@ -59,7 +59,16 @@ export interface Database {
   request_logs: RequestLog;
   stats_aggregates: StatsAggregate;
   provider_auths: ProviderAuth;
+  schema_versions: SchemaVersion;
 }
+
+export interface SchemaVersion {
+  version: number;
+  description: string;
+  applied_at: string;
+}
+
+import { runMigrations, LATEST_SCHEMA_VERSION } from "./migrations.js";
 
 // ============================================================
 // Database initialization — async, works on both Bun and Node
@@ -88,12 +97,7 @@ async function createKyselyDb(dbPath?: string): Promise<Kysely<Database>> {
 
 export async function getDb(dbPath?: string): Promise<Kysely<Database>> {
   if (!_dbPromise) {
-    _dbPromise = createKyselyDb(dbPath).then((db) => {
-      void initDb().catch((err) =>
-        console.error("[db] auto-init failed:", err),
-      );
-      return db;
-    });
+    _dbPromise = createKyselyDb(dbPath);
   }
   return _dbPromise;
 }
@@ -101,159 +105,18 @@ export async function getDb(dbPath?: string): Promise<Kysely<Database>> {
 export async function initDb(dbPath?: string): Promise<void> {
   const db = await getDb(dbPath);
 
-  await db.schema
-    .createTable("request_logs")
-    .ifNotExists()
-    .addColumn("id", "text", (col) => col.primaryKey())
-    .addColumn("timestamp", "text", (col) => col.notNull())
-    .addColumn("auth_key", "text", (col) => col.notNull())
-    .addColumn("provider_id", "text", (col) => col.notNull())
-    .addColumn("model_alias", "text", (col) => col.notNull())
-    .addColumn("real_model", "text", (col) => col.notNull())
-    .addColumn("format", "text", (col) => col.notNull())
-    .addColumn("status", "text", (col) => col.notNull())
-    .addColumn("input_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("output_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("cache_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("cache_hit_tokens", "integer", (col) =>
-      col.notNull().defaultTo(0),
-    )
-    .addColumn("cache_create_tokens", "integer", (col) =>
-      col.notNull().defaultTo(0),
-    )
-    .addColumn("total_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("latency_ms", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("error_message", "text")
-    .addColumn("rate_limited_by", "text")
-    .execute();
+  // Run formal schema version management
+  const result = await runMigrations(db);
 
-  await db.schema
-    .createIndex("idx_request_logs_timestamp")
-    .ifNotExists()
-    .on("request_logs")
-    .column("timestamp")
-    .execute();
-
-  // Migration: add cache_hit_tokens and cache_create_tokens if missing
-  for (const col of ["cache_hit_tokens", "cache_create_tokens"]) {
-    try {
-      await db.schema
-        .alterTable("request_logs")
-        .addColumn(col, "integer", (c) => c.notNull().defaultTo(0))
-        .execute();
-    } catch {
-      /* already exists */
-    }
+  if (result.applied > 0) {
+    console.log(
+      `[db] Schema updated to v${result.currentVersion} (${result.applied} new migration(s))`,
+    );
+  } else {
+    console.log(
+      `[db] Schema at v${result.currentVersion} (${result.skipped} migrations skipped)`,
+    );
   }
-
-  await db.schema
-    .createIndex("idx_request_logs_auth_key")
-    .ifNotExists()
-    .on("request_logs")
-    .column("auth_key")
-    .execute();
-
-  await db.schema
-    .createIndex("idx_request_logs_provider_id")
-    .ifNotExists()
-    .on("request_logs")
-    .column("provider_id")
-    .execute();
-
-  await db.schema
-    .createIndex("idx_request_logs_model_alias")
-    .ifNotExists()
-    .on("request_logs")
-    .column("model_alias")
-    .execute();
-
-  await db.schema
-    .createIndex("idx_request_logs_status")
-    .ifNotExists()
-    .on("request_logs")
-    .column("status")
-    .execute();
-
-  await db.schema
-    .createTable("provider_auths")
-    .ifNotExists()
-    .addColumn("id", "text", (col) => col.primaryKey())
-    .addColumn("provider_id", "text", (col) => col.notNull())
-    .addColumn("key", "text", (col) => col.notNull())
-    .addColumn("name", "text")
-    .addColumn("created_at", "text", (col) => col.notNull())
-    .addColumn("updated_at", "text", (col) => col.notNull())
-    .execute();
-
-  await db.schema
-    .createIndex("idx_provider_auths_provider_id")
-    .ifNotExists()
-    .on("provider_auths")
-    .column("provider_id")
-    .execute();
-
-  // Migration: add auth_type and metadata columns (for OAuth support)
-  // auth_type defaults to "api_key" — existing records are automatically compatible
-  for (const col of ["auth_type"]) {
-    try {
-      await db.schema
-        .alterTable("provider_auths")
-        .addColumn(col, "text", (c) => c.notNull().defaultTo("api_key"))
-        .execute();
-    } catch {
-      /* already exists */
-    }
-  }
-  try {
-    await db.schema
-      .alterTable("provider_auths")
-      .addColumn("metadata", "text")
-      .execute();
-  } catch {
-    /* already exists */
-  }
-
-  await db.schema
-    .createTable("stats_aggregates")
-    .ifNotExists()
-    .addColumn("id", "text", (col) => col.primaryKey())
-    .addColumn("timestamp", "text", (col) => col.notNull())
-    .addColumn("granularity", "text", (col) => col.notNull())
-    .addColumn("auth_key", "text", (col) => col.notNull())
-    .addColumn("provider_id", "text", (col) => col.notNull())
-    .addColumn("model_alias", "text", (col) => col.notNull())
-    .addColumn("request_count", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("success_count", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("error_count", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("rate_limited_count", "integer", (col) =>
-      col.notNull().defaultTo(0),
-    )
-    .addColumn("input_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("output_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("cache_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .addColumn("total_tokens", "integer", (col) => col.notNull().defaultTo(0))
-    .execute();
-
-  await db.schema
-    .createIndex("idx_stats_aggregates_timestamp")
-    .ifNotExists()
-    .on("stats_aggregates")
-    .column("timestamp")
-    .execute();
-
-  await db.schema
-    .createIndex("idx_stats_aggregates_granularity")
-    .ifNotExists()
-    .on("stats_aggregates")
-    .column("granularity")
-    .execute();
-
-  await db.schema
-    .createIndex("idx_stats_aggregates_auth_key")
-    .ifNotExists()
-    .on("stats_aggregates")
-    .column("auth_key")
-    .execute();
 }
 
 export async function closeDb(): Promise<void> {
