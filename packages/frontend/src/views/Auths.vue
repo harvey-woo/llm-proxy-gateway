@@ -668,11 +668,12 @@ watch(showAddModal, (open) => {
                   </template>
                 </div>
               </div>
+              <span v-else-if="a.auth_type === 'oauth'" class="text-xs text-gray-400 dark:text-gray-500">{{ $t("auths.noLimit") }}</span>
               <span v-else class="text-xs text-gray-400 dark:text-gray-500">-</span>
             </td>
             <td class="table-td text-right">
               <button
-                v-if="a.auth_type === 'oauth'"
+                v-if="a.auth_type === 'oauth' && a.usage && a.usage.length > 0"
                 class="btn-secondary btn-xs mr-1"
                 data-testid="auth-sync-usage-btn"
                 @click="syncUsage(a.provider_id, a.key)"

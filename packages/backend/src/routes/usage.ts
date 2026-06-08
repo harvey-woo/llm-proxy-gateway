@@ -76,23 +76,6 @@ async function queryUsageFromDB(
   };
 }
 
-/** 将秒数转为可读的中文周期 */
-function humanPeriod(seconds: number): string {
-  if (seconds >= 86400) {
-    const days = Math.round(seconds / 86400);
-    return `${days}天`;
-  }
-  if (seconds >= 3600) {
-    const hours = Math.round(seconds / 3600);
-    return `${hours}小时`;
-  }
-  if (seconds >= 60) {
-    const mins = Math.round(seconds / 60);
-    return `${mins}分钟`;
-  }
-  return `${seconds}秒`;
-}
-
 /** 将 rate_limits period 字符串转成秒数 */
 function periodToSeconds(period: string): number {
   switch (period) {
@@ -231,6 +214,7 @@ export function createUsageRoutes(
                     periodSec > 0 && Math.abs(periodSec - uw.seconds) < 3600
                   ); // 1小时内误差算匹配
                 });
+                if (!match || match.max <= 0) continue; // 没有配置限额就不显示
 
                 // 同步后本地增量
                 let localInc = 0;
@@ -247,19 +231,9 @@ export function createUsageRoutes(
                   localInc = Number(row?.requests ?? 0);
                 }
 
-                if (match && match.max > 0) {
-                  // 上游百分比对应的绝对基准 + 本地增量
-                  match.used =
-                    Math.round((match.max * uw.usedPct) / 100) + localInc;
-                } else {
-                  // 没有匹配的本地 rate_limit — 用上游百分比作基准 + 本地增量
-                  usage.push({
-                    type: "weighted_requests",
-                    period: humanPeriod(uw.seconds),
-                    used: uw.usedPct + localInc,
-                    max: 100,
-                  });
-                }
+                // 上游百分比 × 配置限额 = 基准用量 + 后续本地增量
+                match.used =
+                  Math.round((match.max * uw.usedPct) / 100) + localInc;
               }
             }
 
