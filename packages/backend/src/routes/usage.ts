@@ -50,6 +50,45 @@ function getPeriodStart(period: string, now: number = Date.now()): number {
 }
 
 /**
+ * 按任意秒数窗口计算当前所在周期的起始时间戳。
+ * 适用于上游返回的任意窗口（如 2592000 秒=30天）。
+ */
+function getWindowPeriodStart(
+  windowSeconds: number,
+  now: number = Date.now(),
+): number {
+  if (windowSeconds <= 0) return 0;
+  return Math.floor(now / (windowSeconds * 1000)) * (windowSeconds * 1000);
+}
+
+/**
+ * 读取 request_logs 表，按 auth_key + 秒级窗口统计请求数和 token 消耗。
+ */
+async function queryUsageFromDBBySeconds(
+  authKey: string,
+  windowSeconds: number,
+): Promise<{ requests: number; tokens: number }> {
+  const db = await getDb();
+  const periodStart = getWindowPeriodStart(windowSeconds);
+  const periodStartISO = new Date(periodStart).toISOString();
+
+  const row = await db
+    .selectFrom("request_logs")
+    .select((eb) => [
+      eb.fn.countAll().as("requests"),
+      eb.fn.sum("total_tokens").as("tokens"),
+    ])
+    .where("auth_key", "=", authKey)
+    .where("timestamp", ">=", periodStartISO)
+    .executeTakeFirst();
+
+  return {
+    requests: Number(row?.requests ?? 0),
+    tokens: Number(row?.tokens ?? 0),
+  };
+}
+
+/**
  * 读取 request_logs 表，按 auth_key + 时间窗口统计请求数和 token 消耗。
  */
 async function queryUsageFromDB(
@@ -228,11 +267,15 @@ export function createUsageRoutes(
                 if (match && match.max > 0) {
                   match.used = Math.round((match.max * uw.usedPct) / 100);
                 } else {
-                  // 没有匹配的本地 rate_limit — 直接显示上游百分比
+                  // 没有匹配的本地 rate_limit — 从 request_logs 统计本地用量
+                  const { requests } = await queryUsageFromDBBySeconds(
+                    auth.key,
+                    uw.seconds,
+                  );
                   usage.push({
                     type: "weighted_requests",
                     period: humanPeriod(uw.seconds),
-                    used: uw.usedPct,
+                    used: requests,
                     max: 100,
                   });
                 }
