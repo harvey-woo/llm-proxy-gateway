@@ -113,7 +113,7 @@ async function main() {
   // Backend serves both API and frontend — the full app in one call
   console.log("[GW] Initializing backend...");
   const { createApp } = await import("@llm-proxy/backend/src/server.js");
-  const { app, stop } = await createApp({
+  const { app: honoApp, stop } = await createApp({
     configDir: paths.configDir,
     dbPath: paths.dbPath,
     frontendDist: paths.frontendDist,
@@ -121,7 +121,7 @@ async function main() {
   console.log("[GW] Backend initialized");
 
   // Single HTTP server for everything
-  Bun.serve({ port: PORT, fetch: app.fetch });
+  Bun.serve({ port: PORT, fetch: honoApp.fetch });
   console.log(`[GW] Ready at http://localhost:${PORT}`);
 
   // Open desktop window — hidden native title bar, custom buttons in AppNav
