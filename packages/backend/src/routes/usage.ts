@@ -50,45 +50,6 @@ function getPeriodStart(period: string, now: number = Date.now()): number {
 }
 
 /**
- * 按任意秒数窗口计算当前所在周期的起始时间戳。
- * 适用于上游返回的任意窗口（如 2592000 秒=30天）。
- */
-function getWindowPeriodStart(
-  windowSeconds: number,
-  now: number = Date.now(),
-): number {
-  if (windowSeconds <= 0) return 0;
-  return Math.floor(now / (windowSeconds * 1000)) * (windowSeconds * 1000);
-}
-
-/**
- * 读取 request_logs 表，按 auth_key + 秒级窗口统计请求数和 token 消耗。
- */
-async function queryUsageFromDBBySeconds(
-  authKey: string,
-  windowSeconds: number,
-): Promise<{ requests: number; tokens: number }> {
-  const db = await getDb();
-  const periodStart = getWindowPeriodStart(windowSeconds);
-  const periodStartISO = new Date(periodStart).toISOString();
-
-  const row = await db
-    .selectFrom("request_logs")
-    .select((eb) => [
-      eb.fn.countAll().as("requests"),
-      eb.fn.sum("total_tokens").as("tokens"),
-    ])
-    .where("auth_key", "=", authKey)
-    .where("timestamp", ">=", periodStartISO)
-    .executeTakeFirst();
-
-  return {
-    requests: Number(row?.requests ?? 0),
-    tokens: Number(row?.tokens ?? 0),
-  };
-}
-
-/**
  * 读取 request_logs 表，按 auth_key + 时间窗口统计请求数和 token 消耗。
  */
 async function queryUsageFromDB(
@@ -256,6 +217,12 @@ export function createUsageRoutes(
                 });
               }
 
+              // 读取同步时保存的基准值，用于计算同步后的本地增量
+              const syncBaseline = oauthMeta.usage_baseline as
+                | Record<string, unknown>
+                | undefined;
+              const syncedAt = syncBaseline?.synced_at as string | undefined;
+
               for (const uw of upstreamWindows) {
                 // 根据秒数找到匹配的已有窗口
                 const match = usage.find((u) => {
@@ -264,18 +231,32 @@ export function createUsageRoutes(
                     periodSec > 0 && Math.abs(periodSec - uw.seconds) < 3600
                   ); // 1小时内误差算匹配
                 });
+
+                // 同步后本地增量
+                let localInc = 0;
+                if (syncedAt) {
+                  const db = await getDb();
+                  const row = await db
+                    .selectFrom("request_logs")
+                    .select(
+                      db.fn.countAll().as("requests"),
+                    )
+                    .where("auth_key", "=", auth.key)
+                    .where("timestamp", ">", syncedAt)
+                    .executeTakeFirst();
+                  localInc = Number(row?.requests ?? 0);
+                }
+
                 if (match && match.max > 0) {
-                  match.used = Math.round((match.max * uw.usedPct) / 100);
+                  // 上游百分比对应的绝对基准 + 本地增量
+                  match.used =
+                    Math.round((match.max * uw.usedPct) / 100) + localInc;
                 } else {
-                  // 没有匹配的本地 rate_limit — 从 request_logs 统计本地用量
-                  const { requests } = await queryUsageFromDBBySeconds(
-                    auth.key,
-                    uw.seconds,
-                  );
+                  // 没有匹配的本地 rate_limit — 用上游百分比作基准 + 本地增量
                   usage.push({
                     type: "weighted_requests",
                     period: humanPeriod(uw.seconds),
-                    used: requests,
+                    used: uw.usedPct + localInc,
                     max: 100,
                   });
                 }
@@ -439,8 +420,43 @@ export async function syncCodexUsage(
   async function callAndSave(token: string): Promise<Record<string, unknown>> {
     const usageData = await callUsageAPI(token);
     // 保存用量结果到 metadata
-    metadata.usage_synced_at = new Date().toISOString();
+    const syncedAt = new Date().toISOString();
+    metadata.usage_synced_at = syncedAt;
     metadata.codex_usage = usageData;
+
+    // 根据上游百分比计算基准用量（max=100 为假设值）
+    const rl = usageData.rate_limit as Record<string, unknown> | undefined;
+    if (rl) {
+      const windows: Record<string, { used: number; max: number }> = {};
+      const primary = rl.primary_window as
+        | Record<string, unknown>
+        | undefined;
+      if (primary?.used_percent !== undefined) {
+        const secs = String(
+          Number(primary.limit_window_seconds) || 2592000,
+        );
+        windows[secs] = {
+          used: Number(primary.used_percent),
+          max: 100,
+        };
+      }
+      const secondary = rl.secondary_window as
+        | Record<string, unknown>
+        | undefined;
+      if (secondary?.used_percent !== undefined) {
+        const secs = String(
+          Number(secondary.limit_window_seconds) || 18000,
+        );
+        windows[secs] = {
+          used: Number(secondary.used_percent),
+          max: 100,
+        };
+      }
+      if (Object.keys(windows).length > 0) {
+        metadata.usage_baseline = { windows, synced_at: syncedAt };
+      }
+    }
+
     const metadataJson = JSON.stringify(metadata);
     try {
       const db = await getDb();
